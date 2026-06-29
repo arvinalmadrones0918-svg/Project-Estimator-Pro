@@ -260,6 +260,10 @@ ensureColumn("work_modules", "wbsSubcategoryId", "wbsSubcategoryId INTEGER REFER
 // Phase 1 revision: scale, audit, multi-user, and price-snapshot columns.
 ensureColumn("projects", "createdByUserId", "createdByUserId INTEGER REFERENCES users(id)");
 ensureColumn("projects", "deletedAt", "deletedAt TEXT");
+// "status" is independent from deletedAt: deletedAt is a soft-delete (hidden
+// everywhere), while status lets a project be archived (read-only, but still
+// listed/searchable) without being deleted.
+ensureColumn("projects", "status", "status TEXT NOT NULL DEFAULT 'active'");
 
 ensureColumn("wbs_categories", "code", "code TEXT");
 ensureColumn("wbs_subcategories", "code", "code TEXT");
@@ -328,4 +332,43 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_module_equipment_equipmentId ON module_equipment(equipmentId);
   CREATE INDEX IF NOT EXISTS idx_module_subcontract_workModuleId ON module_subcontract(workModuleId);
   CREATE INDEX IF NOT EXISTS idx_module_other_costs_workModuleId ON module_other_costs(workModuleId);
+  CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 `);
+
+// Seed the standard CSI-style WBS tree once, on first run only. Never
+// re-runs once a category exists, so user edits/additions are never
+// overwritten on subsequent app starts.
+const wbsCategoryCount = db.prepare("SELECT COUNT(*) AS count FROM wbs_categories").get().count;
+if (wbsCategoryCount === 0) {
+  const DEFAULT_WBS = [
+    {
+      name: "Mechanical",
+      subcategories: [
+        "HVAC",
+        "Fire Protection",
+        "Plumbing",
+        "Sanitary",
+        "Ventilation",
+        "Pumps",
+        "Medical Gas",
+        "Compressed Air",
+        "Fuel System",
+        "Building Automation",
+      ],
+    },
+    { name: "Electrical", subcategories: [] },
+    { name: "Civil", subcategories: [] },
+    { name: "Architectural", subcategories: [] },
+    { name: "General Requirements", subcategories: [] },
+  ];
+  const insertCategory = db.prepare("INSERT INTO wbs_categories (name, sortOrder) VALUES (?, ?)");
+  const insertSubcategory = db.prepare(
+    "INSERT INTO wbs_subcategories (wbsCategoryId, name, sortOrder) VALUES (?, ?, ?)"
+  );
+  DEFAULT_WBS.forEach((category, categoryIndex) => {
+    const { lastInsertRowid: categoryId } = insertCategory.run(category.name, categoryIndex);
+    category.subcategories.forEach((name, subIndex) => {
+      insertSubcategory.run(categoryId, name, subIndex);
+    });
+  });
+}

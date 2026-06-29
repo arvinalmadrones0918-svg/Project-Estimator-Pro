@@ -136,6 +136,15 @@ function withCostBreakdown(workModule) {
   };
 }
 
+// Shared by the projects route so the dashboard can show a live rollup
+// without duplicating the per-module cost-breakdown logic above.
+export function getProjectTotalCost(projectId) {
+  const modules = db
+    .prepare("SELECT * FROM work_modules WHERE projectId = ? AND deletedAt IS NULL")
+    .all(projectId);
+  return modules.reduce((sum, m) => sum + withCostBreakdown(m).totalCost, 0);
+}
+
 router.get("/", (req, res) => {
   const { projectId } = req.query;
   const modules = projectId
