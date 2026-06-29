@@ -1,0 +1,13 @@
+{
+  "name": "estimator-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-sqlite src/index.js",
+    "seed": "node --experimental-sqlite src/seed.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
+  }
+}

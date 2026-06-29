@@ -1,0 +1,215 @@
+:root {
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f5f6f8;
+  color: #1d1d1f;
+}
+
+.app-header {
+  background: #1d2733;
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.app-header nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.app-header nav button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.app-header nav button.active {
+  background: white;
+  color: #1d2733;
+  font-weight: 600;
+}
+
+main {
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.page h2 {
+  margin-top: 0;
+}
+
+.error {
+  color: #b3261e;
+  font-weight: 600;
+}
+
+.inline-form,
+.stacked-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.stacked-form {
+  flex-direction: column;
+}
+
+input,
+select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.inline-form button,
+.stacked-form button {
+  background: #2f6feb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.45rem 0.9rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  background: #f0f2f5;
+}
+
+.price-input {
+  width: 90px;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #2f6feb;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.link-button.danger {
+  color: #b3261e;
+}
+
+.modules-page {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem;
+}
+
+.modules-sidebar {
+  background: white;
+  border-radius: 6px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  align-self: start;
+}
+
+.module-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.module-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.25rem;
+  border-radius: 4px;
+}
+
+.module-list li.selected {
+  background: #eef3fc;
+}
+
+.module-select {
+  flex: 1;
+  text-align: left;
+}
+
+.module-total {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.modules-detail {
+  background: white;
+  border-radius: 6px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.description {
+  color: #555;
+}
+
+.cost-summary {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.cost-card {
+  flex: 1;
+  background: #f0f2f5;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.cost-card.total {
+  background: #1d2733;
+  color: white;
+}
+
+.cost-label {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.cost-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
