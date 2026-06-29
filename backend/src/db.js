@@ -309,6 +309,83 @@ for (const table of ["module_subcontract", "module_other_costs"]) {
   ensureTimestampColumns(table);
 }
 
+// Phase 3: Extended catalog fields — added non-destructively so existing data survives.
+// labor_specializations needs category added (materials/equipment already have it in the CREATE TABLE).
+ensureColumn("labor_specializations", "category", "category TEXT NOT NULL DEFAULT 'General'");
+
+const catalogTables = ["materials", "labor_specializations", "equipment"];
+for (const t of catalogTables) {
+  ensureColumn(t, "description", "description TEXT");
+  ensureColumn(t, "subcategory", "subcategory TEXT");
+  ensureColumn(t, "manufacturer", "manufacturer TEXT");
+  ensureColumn(t, "brand", "brand TEXT");
+  ensureColumn(t, "supplier", "supplier TEXT");
+  ensureColumn(t, "currency", "currency TEXT NOT NULL DEFAULT 'USD'");
+  ensureColumn(t, "remarks", "remarks TEXT");
+  ensureColumn(t, "deletedAt", "deletedAt TEXT");
+  ensureColumn(t, "createdBy", "createdBy TEXT");
+}
+
+// Phase 3: Two new master-catalog tables (no prior equivalent).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontract_catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL DEFAULT 'General',
+    subcategory TEXT,
+    manufacturer TEXT,
+    brand TEXT,
+    supplier TEXT,
+    unit TEXT,
+    unitPrice REAL NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    remarks TEXT,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    deletedAt TEXT,
+    createdBy TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS other_costs_catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL DEFAULT 'General',
+    subcategory TEXT,
+    manufacturer TEXT,
+    brand TEXT,
+    supplier TEXT,
+    unit TEXT,
+    unitPrice REAL NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    remarks TEXT,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    deletedAt TEXT,
+    createdBy TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Append-only audit log of price changes for any catalog item.
+  -- catalogType discriminates which table the catalogId refers to.
+  CREATE TABLE IF NOT EXISTS catalog_price_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    catalogType TEXT NOT NULL,
+    catalogId INTEGER NOT NULL,
+    oldPrice REAL,
+    newPrice REAL NOT NULL,
+    effectiveDate TEXT NOT NULL DEFAULT (date('now')),
+    supplier TEXT,
+    updatedBy TEXT,
+    notes TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -317,9 +394,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_projects_deletedAt ON projects(deletedAt);
   CREATE INDEX IF NOT EXISTS idx_materials_category ON materials(category);
   CREATE INDEX IF NOT EXISTS idx_materials_isActive ON materials(isActive);
+  CREATE INDEX IF NOT EXISTS idx_materials_deletedAt ON materials(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_materials_supplier ON materials(supplier);
   CREATE INDEX IF NOT EXISTS idx_labor_specializations_isActive ON labor_specializations(isActive);
+  CREATE INDEX IF NOT EXISTS idx_labor_specializations_deletedAt ON labor_specializations(deletedAt);
   CREATE INDEX IF NOT EXISTS idx_equipment_category ON equipment(category);
   CREATE INDEX IF NOT EXISTS idx_equipment_isActive ON equipment(isActive);
+  CREATE INDEX IF NOT EXISTS idx_equipment_deletedAt ON equipment(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_subcontract_catalog_isActive ON subcontract_catalog(isActive);
+  CREATE INDEX IF NOT EXISTS idx_subcontract_catalog_deletedAt ON subcontract_catalog(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_other_costs_catalog_isActive ON other_costs_catalog(isActive);
+  CREATE INDEX IF NOT EXISTS idx_other_costs_catalog_deletedAt ON other_costs_catalog(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_price_history_catalog ON catalog_price_history(catalogType, catalogId);
   CREATE INDEX IF NOT EXISTS idx_work_modules_projectId ON work_modules(projectId);
   CREATE INDEX IF NOT EXISTS idx_work_modules_wbsCategoryId ON work_modules(wbsCategoryId);
   CREATE INDEX IF NOT EXISTS idx_work_modules_wbsSubcategoryId ON work_modules(wbsSubcategoryId);
