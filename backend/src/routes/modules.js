@@ -71,18 +71,52 @@ function getOtherCostLines(workModuleId) {
     .all(workModuleId);
 }
 
+// Assemblies don't store a precomputed total; it's always derived live from
+// their child items so it can never drift out of sync.
+export function getAssemblyTotalCost(assemblyId) {
+  const items = db.prepare("SELECT itemType, quantity, unitPriceAtEntry, hourlyRateAtEntry, cost FROM assembly_items WHERE assemblyId = ?").all(assemblyId);
+  return items.reduce((sum, item) => {
+    if (item.itemType === "material" || item.itemType === "equipment") return sum + item.quantity * item.unitPriceAtEntry;
+    if (item.itemType === "labor") return sum + item.quantity * item.hourlyRateAtEntry;
+    return sum + (item.cost ?? 0);
+  }, 0);
+}
+
+// A module can reference a cost assembly instead of (or alongside) catalog
+// items directly. Cost uses the snapshot taken when the assembly was added
+// (unitCostAtEntry), the same price-freeze pattern as every other line item.
+function getAssemblyLines(workModuleId) {
+  return db
+    .prepare(
+      `SELECT ma.id, ma.assemblyId, a.code, a.name, a.unit,
+              ma.unitCostAtEntry AS unitCost, ma.quantity, ma.notes, ma.sortOrder
+       FROM module_assemblies ma
+       JOIN assemblies a ON a.id = ma.assemblyId
+       WHERE ma.workModuleId = ?
+       ORDER BY ma.sortOrder ASC, ma.id ASC`
+    )
+    .all(workModuleId)
+    .map((row) => ({
+      ...row,
+      currentUnitCost: getAssemblyTotalCost(row.assemblyId),
+      cost: row.quantity * row.unitCost,
+    }));
+}
+
 function withCostBreakdown(workModule) {
   const materialLines = getMaterialLines(workModule.id);
   const laborLines = getLaborLines(workModule.id);
   const equipmentLines = getEquipmentLines(workModule.id);
   const subcontractLines = getSubcontractLines(workModule.id);
   const otherCostLines = getOtherCostLines(workModule.id);
+  const assemblyLines = getAssemblyLines(workModule.id);
 
   const materialCost = materialLines.reduce((sum, l) => sum + l.cost, 0);
   const laborCost = laborLines.reduce((sum, l) => sum + l.cost, 0);
   const equipmentCost = equipmentLines.reduce((sum, l) => sum + l.cost, 0);
   const subcontractCost = subcontractLines.reduce((sum, l) => sum + l.cost, 0);
   const otherCost = otherCostLines.reduce((sum, l) => sum + l.cost, 0);
+  const assemblyCost = assemblyLines.reduce((sum, l) => sum + l.cost, 0);
 
   return {
     ...workModule,
@@ -91,12 +125,14 @@ function withCostBreakdown(workModule) {
     equipmentLines,
     subcontractLines,
     otherCostLines,
+    assemblyLines,
     materialCost,
     laborCost,
     equipmentCost,
     subcontractCost,
     otherCost,
-    totalCost: materialCost + laborCost + equipmentCost + subcontractCost + otherCost,
+    assemblyCost,
+    totalCost: materialCost + laborCost + equipmentCost + subcontractCost + otherCost + assemblyCost,
   };
 }
 
@@ -332,6 +368,44 @@ router.put("/:id/other-costs/:lineId", (req, res) => {
 router.delete("/:id/other-costs/:lineId", (req, res) => {
   const lineId = Number(req.params.lineId);
   db.prepare("DELETE FROM module_other_costs WHERE id = ?").run(lineId);
+  res.status(204).end();
+});
+
+// Assembly lines
+router.post("/:id/assemblies", (req, res) => {
+  const workModuleId = Number(req.params.id);
+  const { assemblyId, quantity, notes } = req.body;
+  if (!assemblyId || quantity == null) {
+    return res.status(400).json({ error: "assemblyId and quantity are required" });
+  }
+  const assembly = db.prepare("SELECT id FROM assemblies WHERE id = ?").get(Number(assemblyId));
+  if (!assembly) return res.status(400).json({ error: "assemblyId does not exist" });
+  const unitCostAtEntry = getAssemblyTotalCost(Number(assemblyId));
+  const result = db
+    .prepare(
+      `INSERT INTO module_assemblies (workModuleId, assemblyId, quantity, unitCostAtEntry, notes, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+    )
+    .run(workModuleId, Number(assemblyId), Number(quantity), unitCostAtEntry, notes ?? null);
+  res.status(201).json(db.prepare("SELECT * FROM module_assemblies WHERE id = ?").get(result.lastInsertRowid));
+});
+
+router.put("/:id/assemblies/:lineId", (req, res) => {
+  const lineId = Number(req.params.lineId);
+  const existing = db.prepare("SELECT * FROM module_assemblies WHERE id = ?").get(lineId);
+  if (!existing) return res.status(404).json({ error: "Not found" });
+  const { quantity, notes } = req.body;
+  db.prepare("UPDATE module_assemblies SET quantity = ?, notes = ?, updatedAt = datetime('now') WHERE id = ?").run(
+    quantity != null ? Number(quantity) : existing.quantity,
+    notes !== undefined ? notes : existing.notes,
+    lineId
+  );
+  res.json(db.prepare("SELECT * FROM module_assemblies WHERE id = ?").get(lineId));
+});
+
+router.delete("/:id/assemblies/:lineId", (req, res) => {
+  const lineId = Number(req.params.lineId);
+  db.prepare("DELETE FROM module_assemblies WHERE id = ?").run(lineId);
   res.status(204).end();
 });
 

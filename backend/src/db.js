@@ -168,7 +168,69 @@ db.exec(`
     updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- Cost assemblies: reusable bundles of materials/labor/equipment/
+  -- subcontract/other-cost items (e.g. "Install 1 AHU") that can be dropped
+  -- into a work module as a single priced line item. "version" lets an
+  -- assembly be revised without breaking modules that already reference an
+  -- older version's frozen cost (see module_assemblies.unitCostAtEntry).
+  CREATE TABLE IF NOT EXISTS assemblies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    name TEXT NOT NULL,
+    description TEXT,
+    unit TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A child item of an assembly. itemType selects which catalog FK / direct
+  -- cost fields apply, mirroring the module_* line-item tables exactly:
+  -- material/labor/equipment reference a catalog row + quantity + a price
+  -- snapshot; subcontract/other store a direct description + cost.
+  CREATE TABLE IF NOT EXISTS assembly_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    assemblyId INTEGER NOT NULL REFERENCES assemblies(id) ON DELETE CASCADE,
+    itemType TEXT NOT NULL CHECK (itemType IN ('material', 'labor', 'equipment', 'subcontract', 'other')),
+    materialId INTEGER REFERENCES materials(id),
+    specializationId INTEGER REFERENCES labor_specializations(id),
+    equipmentId INTEGER REFERENCES equipment(id),
+    description TEXT,
+    quantity REAL,
+    unitPriceAtEntry REAL,
+    hourlyRateAtEntry REAL,
+    cost REAL,
+    notes TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A work module's reference to a cost assembly, the assembly-line
+  -- counterpart to module_materials/module_labor/etc. Like every other line
+  -- item, the assembly's per-unit cost is snapshotted at entry time so the
+  -- module's total doesn't shift if the assembly is revised later.
+  CREATE TABLE IF NOT EXISTS module_assemblies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workModuleId INTEGER NOT NULL REFERENCES work_modules(id) ON DELETE CASCADE,
+    assemblyId INTEGER NOT NULL REFERENCES assemblies(id),
+    quantity REAL NOT NULL,
+    unitCostAtEntry REAL NOT NULL DEFAULT 0,
+    notes TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_wbs_subcategories_wbsCategoryId ON wbs_subcategories(wbsCategoryId);
+  CREATE INDEX IF NOT EXISTS idx_assemblies_isActive ON assemblies(isActive);
+  CREATE INDEX IF NOT EXISTS idx_assembly_items_assemblyId ON assembly_items(assemblyId);
+  CREATE INDEX IF NOT EXISTS idx_assembly_items_materialId ON assembly_items(materialId);
+  CREATE INDEX IF NOT EXISTS idx_assembly_items_specializationId ON assembly_items(specializationId);
+  CREATE INDEX IF NOT EXISTS idx_assembly_items_equipmentId ON assembly_items(equipmentId);
+  CREATE INDEX IF NOT EXISTS idx_module_assemblies_workModuleId ON module_assemblies(workModuleId);
+  CREATE INDEX IF NOT EXISTS idx_module_assemblies_assemblyId ON module_assemblies(assemblyId);
 `);
 
 function ensureColumn(table, column, ddl) {

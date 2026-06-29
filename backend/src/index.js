@@ -6,6 +6,7 @@ import equipmentRouter from "./routes/equipment.js";
 import projectsRouter from "./routes/projects.js";
 import wbsRouter from "./routes/wbs.js";
 import modulesRouter from "./routes/modules.js";
+import assembliesRouter from "./routes/assemblies.js";
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,7 @@ app.use("/api/equipment", equipmentRouter);
 app.use("/api/projects", projectsRouter);
 app.use("/api/wbs", wbsRouter);
 app.use("/api/modules", modulesRouter);
+app.use("/api/assemblies", assembliesRouter);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
