@@ -386,6 +386,23 @@ db.exec(`
   );
 `);
 
+// Phase 4: markup % and status on every line item table
+const lineItemTables4 = [
+  "module_materials", "module_labor", "module_equipment",
+  "module_subcontract", "module_other_costs", "module_assemblies",
+];
+for (const t of lineItemTables4) {
+  ensureColumn(t, "markup", "markup REAL NOT NULL DEFAULT 0");
+  ensureColumn(t, "status", "status TEXT NOT NULL DEFAULT 'included'");
+}
+// Freeform code/category/supplier on subcontract and other-cost lines
+for (const t of ["module_subcontract", "module_other_costs"]) {
+  ensureColumn(t, "code", "code TEXT");
+  ensureColumn(t, "category", "category TEXT");
+  ensureColumn(t, "supplier", "supplier TEXT");
+  ensureColumn(t, "unit", "unit TEXT");
+}
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup

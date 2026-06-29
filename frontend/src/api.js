@@ -99,5 +99,8 @@ export const api = {
     updateAssembly: (id, lineId, data) =>
       request(`/modules/${id}/assemblies/${lineId}`, { method: "PUT", body: JSON.stringify(data) }),
     removeAssembly: (id, lineId) => request(`/modules/${id}/assemblies/${lineId}`, { method: "DELETE" }),
+
+    sortLines: (id, lineType, items) =>
+      request(`/modules/${id}/lines/sort`, { method: "PATCH", body: JSON.stringify({ lineType, items }) }),
   },
 };
