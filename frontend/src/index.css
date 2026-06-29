@@ -213,3 +213,7 @@ th {
   font-size: 1.4rem;
   font-weight: 700;
 }
+
+.chart-container {
+  margin-bottom: 1.5rem;
+}

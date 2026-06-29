@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { api } from "./api";
+
+const COST_COLORS = ["#2f6feb", "#e8893a"];
 
 function money(n) {
   return `$${n.toFixed(2)}`;
@@ -174,6 +177,33 @@ function ModuleDetail({ moduleSummary, onChange, setError }) {
           <div className="cost-value">{money(detail.totalCost)}</div>
         </div>
       </div>
+
+      {detail.totalCost > 0 && (
+        <div className="chart-container">
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={[
+                  { name: "Material Cost", value: detail.materialCost },
+                  { name: "Labor Cost", value: detail.laborCost },
+                ]}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                label={({ name, value }) => `${name}: ${money(value)}`}
+              >
+                {COST_COLORS.map((color) => (
+                  <Cell key={color} fill={color} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => money(value)} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <section>
         <h3>Materials</h3>
