@@ -5,3 +5,4 @@ frontend/dist/
 .env
 /package.json
 /package-lock.json
+/verify_*.mjs
