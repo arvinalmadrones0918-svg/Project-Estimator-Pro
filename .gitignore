@@ -3,3 +3,5 @@ backend/data.db
 frontend/dist/
 *.log
 .env
+/package.json
+/package-lock.json
