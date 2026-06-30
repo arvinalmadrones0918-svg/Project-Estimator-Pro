@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db.js";
-import { calculateModule, calculateProject, calculateAssemblyResult } from "../services/costEngine.js";
+import { calculateModule, calculateProject, calculateAssemblyResult, calculateUPA } from "../services/costEngine.js";
 
 const router = Router();
 
@@ -104,6 +104,29 @@ function getAssemblyLines(workModuleId) {
     }));
 }
 
+// UPA lines reference a Unit Price Analysis. The per-unit rate is frozen at
+// entry (unitRateAtEntry); currentUnitRate is the live recalculation so the UI
+// can flag drift, mirroring the catalog/assembly price-snapshot pattern.
+function getUpaLines(workModuleId) {
+  return db
+    .prepare(
+      `SELECT mu.id, mu.upaId, u.code, u.description AS name, u.unit,
+              mu.unitRateAtEntry AS unitPrice, mu.quantity, mu.notes,
+              mu.sortOrder, mu.markup, mu.status
+       FROM module_upa mu
+       JOIN unit_price_analyses u ON u.id = mu.upaId
+       WHERE mu.workModuleId = ?
+       ORDER BY mu.sortOrder ASC, mu.id ASC`
+    )
+    .all(workModuleId)
+    .map((row) => ({
+      ...row,
+      lineType: "upa",
+      currentUnitPrice: calculateUPA(row.upaId)?.unitRate ?? 0,
+      cost: row.quantity * row.unitPrice,
+    }));
+}
+
 function withCostBreakdown(workModule) {
   const materialLines = getMaterialLines(workModule.id);
   const laborLines = getLaborLines(workModule.id);
@@ -111,6 +134,7 @@ function withCostBreakdown(workModule) {
   const subcontractLines = getSubcontractLines(workModule.id);
   const otherCostLines = getOtherCostLines(workModule.id);
   const assemblyLines = getAssemblyLines(workModule.id);
+  const upaLines = getUpaLines(workModule.id);
 
   const materialCost = materialLines.reduce((s, l) => s + l.cost, 0);
   const laborCost = laborLines.reduce((s, l) => s + l.cost, 0);
@@ -118,6 +142,7 @@ function withCostBreakdown(workModule) {
   const subcontractCost = subcontractLines.reduce((s, l) => s + l.cost, 0);
   const otherCost = otherCostLines.reduce((s, l) => s + l.cost, 0);
   const assemblyCost = assemblyLines.reduce((s, l) => s + l.cost, 0);
+  const upaCost = upaLines.reduce((s, l) => s + l.cost, 0);
 
   return {
     ...workModule,
@@ -127,13 +152,15 @@ function withCostBreakdown(workModule) {
     subcontractLines,
     otherCostLines,
     assemblyLines,
+    upaLines,
     materialCost,
     laborCost,
     equipmentCost,
     subcontractCost,
     otherCost,
     assemblyCost,
-    totalCost: materialCost + laborCost + equipmentCost + subcontractCost + otherCost + assemblyCost,
+    upaCost,
+    totalCost: materialCost + laborCost + equipmentCost + subcontractCost + otherCost + assemblyCost + upaCost,
   };
 }
 
@@ -399,6 +426,47 @@ router.delete("/:id/assemblies/:lineId", (req, res) => {
   res.status(204).end();
 });
 
+// UPA lines: freeze the full per-unit breakdown at entry so the estimate never
+// shifts when the UPA or its catalog prices change later.
+router.post("/:id/upa", (req, res) => {
+  const workModuleId = Number(req.params.id);
+  const { upaId, quantity, notes } = req.body;
+  if (!upaId || quantity == null) return res.status(400).json({ error: "upaId and quantity are required" });
+  const calc = calculateUPA(Number(upaId));
+  if (!calc) return res.status(400).json({ error: "upaId does not exist" });
+  const result = db
+    .prepare(
+      `INSERT INTO module_upa (workModuleId, upaId, quantity, unitRateAtEntry,
+        matCostAtEntry, laborCostAtEntry, equipCostAtEntry, subCostAtEntry, otherCostAtEntry,
+        notes, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+    )
+    .run(workModuleId, Number(upaId), Number(quantity), calc.unitRate,
+      calc.materialCost, calc.laborCost, calc.equipmentCost, calc.subcontractCost, calc.otherCost,
+      notes ?? null);
+  res.status(201).json(db.prepare("SELECT * FROM module_upa WHERE id = ?").get(result.lastInsertRowid));
+});
+
+router.put("/:id/upa/:lineId", (req, res) => {
+  const lineId = Number(req.params.lineId);
+  const existing = db.prepare("SELECT * FROM module_upa WHERE id = ?").get(lineId);
+  if (!existing) return res.status(404).json({ error: "Not found" });
+  const { quantity, notes, markup, status } = req.body;
+  db.prepare("UPDATE module_upa SET quantity = ?, notes = ?, markup = ?, status = ?, updatedAt = datetime('now') WHERE id = ?").run(
+    quantity != null ? Number(quantity) : existing.quantity,
+    notes !== undefined ? notes : existing.notes,
+    markup != null ? Number(markup) : existing.markup,
+    status !== undefined ? status : existing.status,
+    lineId
+  );
+  res.json(db.prepare("SELECT * FROM module_upa WHERE id = ?").get(lineId));
+});
+
+router.delete("/:id/upa/:lineId", (req, res) => {
+  db.prepare("DELETE FROM module_upa WHERE id = ?").run(Number(req.params.lineId));
+  res.status(204).end();
+});
+
 // ── Reorder lines within a section ────────────────────────────────────────
 router.patch("/:id/lines/sort", (req, res) => {
   const { lineType, items } = req.body; // items: [{id, sortOrder}]
@@ -409,6 +477,7 @@ router.patch("/:id/lines/sort", (req, res) => {
     subcontract: "module_subcontract",
     otherCost: "module_other_costs",
     assembly: "module_assemblies",
+    upa: "module_upa",
   };
   const table = tableMap[lineType];
   if (!table || !Array.isArray(items)) return res.status(400).json({ error: "invalid lineType or items" });

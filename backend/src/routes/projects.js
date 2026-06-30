@@ -105,6 +105,7 @@ const LINE_ITEM_TABLES = [
   { table: "module_subcontract", cols: ["description", "cost", "notes", "sortOrder"] },
   { table: "module_other_costs", cols: ["description", "cost", "notes", "sortOrder"] },
   { table: "module_assemblies", cols: ["assemblyId", "quantity", "unitCostAtEntry", "notes", "sortOrder"] },
+  { table: "module_upa", cols: ["upaId", "quantity", "unitRateAtEntry", "matCostAtEntry", "laborCostAtEntry", "equipCostAtEntry", "subCostAtEntry", "otherCostAtEntry", "notes", "sortOrder"] },
 ];
 
 // Deep-copies a project: the project row, every (non-deleted) work module,

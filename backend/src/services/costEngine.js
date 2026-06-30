@@ -74,7 +74,7 @@ export function calculateAssembly(assemblyId, _seen = new Set()) {
   }
 
   const items = db
-    .prepare("SELECT itemType, childAssemblyId, quantity, unitPriceAtEntry, hourlyRateAtEntry, cost FROM assembly_items WHERE assemblyId = ?")
+    .prepare("SELECT itemType, childAssemblyId, childUpaId, quantity, unitPriceAtEntry, hourlyRateAtEntry, cost FROM assembly_items WHERE assemblyId = ?")
     .all(assemblyId);
 
   const breakdown = EMPTY_BREAKDOWN();
@@ -82,6 +82,11 @@ export function calculateAssembly(assemblyId, _seen = new Set()) {
     if (item.itemType === "assembly" && item.childAssemblyId) {
       const child = calculateAssembly(item.childAssemblyId, _seen);
       addBreakdown(breakdown, child, item.quantity ?? 1);
+    } else if (item.itemType === "upa" && item.childUpaId) {
+      // A UPA referenced by an assembly is computed live from its current
+      // resource breakdown (the assembly is a live recipe).
+      const upa = calculateUPA(item.childUpaId);
+      if (upa) addBreakdown(breakdown, upa.breakdown, item.quantity ?? 1);
     } else if (item.itemType === "material") {
       breakdown.material += (item.quantity ?? 0) * (item.unitPriceAtEntry ?? 0);
     } else if (item.itemType === "equipment") {
@@ -104,6 +109,91 @@ export function calculateAssemblyResult(assemblyId) {
   return { ...breakdown, total: breakdownTotal(breakdown) };
 }
 
+// ── Unit Price Analysis (UPA) ───────────────────────────────────────────────
+
+const upaCache = new Map(); // upaId -> { signature, result }
+
+function upaSignature(upaId) {
+  const head = db.prepare("SELECT updatedAt FROM unit_price_analyses WHERE id = ?").get(upaId);
+  const res = db.prepare("SELECT COUNT(*) AS c, COALESCE(MAX(updatedAt),'') AS u FROM upa_resources WHERE upaId = ?").get(upaId);
+  return `${head?.updatedAt ?? ""}:${res.c}:${res.u}`;
+}
+
+// Per-resource amount, accounting for waste (all types) and idle factor
+// (equipment). Cost basis is the frozen snapshot stored on the resource.
+function upaResourceAmount(r) {
+  const waste = 1 + (r.wastePct ?? 0) / 100;
+  let amount = (r.quantity ?? 0) * (r.frozenCost ?? 0) * waste;
+  if (r.resourceType === "equipment") amount *= 1 + (r.idleFactor ?? 0) / 100;
+  return amount;
+}
+
+/**
+ * Calculate a UPA's unit rate. Reuses the same cost-type bucketing as the rest
+ * of the engine. Resources roll up by type, regional factors adjust the direct
+ * cost into the final unit rate:
+ *   unitRate = directCost * locationAdjustment * regionalMultiplier
+ *              + transportation + mobilization
+ */
+export function calculateUPA(upaId) {
+  const sig = upaSignature(upaId);
+  const cached = upaCache.get(upaId);
+  if (cached && cached.signature === sig) return { ...cached.result };
+
+  const upa = db.prepare("SELECT * FROM unit_price_analyses WHERE id = ?").get(upaId);
+  if (!upa) return null;
+  const resources = db.prepare("SELECT * FROM upa_resources WHERE upaId = ?").all(upaId);
+
+  const breakdown = EMPTY_BREAKDOWN();
+  for (const r of resources) {
+    const amount = upaResourceAmount(r);
+    if (r.resourceType === "material") breakdown.material += amount;
+    else if (r.resourceType === "labor") breakdown.labor += amount;
+    else if (r.resourceType === "equipment") breakdown.equipment += amount;
+    else if (r.resourceType === "subcontract") breakdown.subcontract += amount;
+    else breakdown.other += amount;
+  }
+
+  const directCost = breakdownTotal(breakdown);
+  const regionalFactor = (upa.locationAdjustment ?? 1) * (upa.regionalMultiplier ?? 1);
+  const adjusted = {
+    material: breakdown.material * regionalFactor,
+    labor: breakdown.labor * regionalFactor,
+    equipment: breakdown.equipment * regionalFactor,
+    subcontract: breakdown.subcontract * regionalFactor,
+    other: breakdown.other * regionalFactor,
+  };
+  const additive = (upa.transportation ?? 0) + (upa.mobilization ?? 0);
+  // Attribute additive regional costs to the "other" bucket.
+  adjusted.other += additive;
+  const unitRate = breakdownTotal(adjusted);
+
+  const result = {
+    upaId,
+    unit: upa.unit,
+    directCost,
+    regionalFactor,
+    transportation: upa.transportation ?? 0,
+    mobilization: upa.mobilization ?? 0,
+    materialCost: adjusted.material,
+    laborCost: adjusted.labor,
+    equipmentCost: adjusted.equipment,
+    subcontractCost: adjusted.subcontract,
+    otherCost: adjusted.other,
+    unitRate,
+    breakdown: adjusted,
+  };
+  upaCache.set(upaId, { signature: sig, result: { ...result } });
+  return result;
+}
+
+export function invalidateUPA(upaId) {
+  upaCache.delete(upaId);
+}
+
+// Exposed for unit testing the waste/idle resource math without a DB.
+export const __upaResourceAmountForTest = upaResourceAmount;
+
 // ── Module (incremental cache) ──────────────────────────────────────────────
 
 const moduleCache = new Map(); // moduleId -> { signature, breakdown }
@@ -113,7 +203,7 @@ const moduleCache = new Map(); // moduleId -> { signature, breakdown }
 function moduleSignature(moduleId) {
   const tables = [
     "module_materials", "module_labor", "module_equipment",
-    "module_subcontract", "module_other_costs", "module_assemblies",
+    "module_subcontract", "module_other_costs", "module_assemblies", "module_upa",
   ];
   let sig = "";
   for (const t of tables) {
@@ -156,6 +246,19 @@ export function calculateModule(moduleId) {
   for (const ref of asmRefs) {
     const child = calculateAssembly(ref.assemblyId);
     addBreakdown(breakdown, child, ref.quantity ?? 1);
+  }
+
+  // UPA references use the per-unit breakdown frozen at entry (price-freeze).
+  const upaRefs = db
+    .prepare("SELECT quantity, matCostAtEntry, laborCostAtEntry, equipCostAtEntry, subCostAtEntry, otherCostAtEntry FROM module_upa WHERE workModuleId = ?")
+    .all(moduleId);
+  for (const ref of upaRefs) {
+    const q = ref.quantity ?? 1;
+    breakdown.material += (ref.matCostAtEntry ?? 0) * q;
+    breakdown.labor += (ref.laborCostAtEntry ?? 0) * q;
+    breakdown.equipment += (ref.equipCostAtEntry ?? 0) * q;
+    breakdown.subcontract += (ref.subCostAtEntry ?? 0) * q;
+    breakdown.other += (ref.otherCostAtEntry ?? 0) * q;
   }
 
   moduleCache.set(moduleId, { signature: sig, breakdown: { ...breakdown } });

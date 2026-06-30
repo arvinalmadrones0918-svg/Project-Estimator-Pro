@@ -4,6 +4,7 @@ import { money } from "../utils";
 import Spinner from "../components/Spinner";
 import CatalogSearchModal from "./CatalogSearchModal";
 import EstimateContextMenu from "./EstimateContextMenu";
+import UpaPickerModal from "./UpaPickerModal";
 
 const ROW_H = 36;
 const OVERSCAN = 8;
@@ -29,6 +30,7 @@ function buildRows(detail, expandedAssemblies, assemblyChildren) {
     { key: "subcontract", label: "Subcontract", lines: detail.subcontractLines ?? [] },
     { key: "otherCost", label: "Other Costs", lines: detail.otherCostLines ?? [] },
     { key: "assembly", label: "Assemblies", lines: detail.assemblyLines ?? [] },
+    { key: "upa", label: "Unit Price Analysis", lines: detail.upaLines ?? [] },
   ];
   const rows = [];
   for (const sec of sections) {
@@ -59,6 +61,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
   const [expandedAssemblies, setExpandedAssemblies] = useState(new Set());
   const [assemblyChildren, setAssemblyChildren] = useState({});
   const [showCatalogModal, setShowCatalogModal] = useState(false);
+  const [showUpaModal, setShowUpaModal] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [clipboard, setClipboard] = useState(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -173,6 +176,10 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
       const payload = { [field]: field === "quantity" || field === "markup" ? Number(val) : val };
       updater = () => api.modules.updateAssembly(moduleId, id, payload);
       reverter = () => api.modules.updateAssembly(moduleId, id, { [field]: oldVal });
+    } else if (lineType === "upa") {
+      const payload = { [field]: field === "quantity" || field === "markup" ? Number(val) : val };
+      updater = () => api.modules.updateUPA(moduleId, id, payload);
+      reverter = () => api.modules.updateUPA(moduleId, id, { [field]: oldVal });
     }
 
     if (updater) await withSave(updater, reverter);
@@ -191,6 +198,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
         subcontract: api.modules.updateSubcontract,
         otherCost: api.modules.updateOtherCost,
         assembly: api.modules.updateAssembly,
+        upa: api.modules.updateUPA,
       }[lineType];
       return fn(moduleId, id, { status: newStatus });
     };
@@ -203,6 +211,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
         subcontract: api.modules.updateSubcontract,
         otherCost: api.modules.updateOtherCost,
         assembly: api.modules.updateAssembly,
+        upa: api.modules.updateUPA,
       }[lineType];
       return fn(moduleId, id, { status: oldStatus });
     });
@@ -250,6 +259,8 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
       await withSave(() => api.modules.addSubcontract(moduleId, { description: "New subcontract item", cost: 0 }), () => {});
     } else if (lineType === "otherCost") {
       await withSave(() => api.modules.addOtherCost(moduleId, { description: "New cost item", cost: 0 }), () => {});
+    } else if (lineType === "upa") {
+      setShowUpaModal(true);
     } else {
       setShowCatalogModal(true);
     }
@@ -265,6 +276,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
       subcontract: () => api.modules.removeSubcontract(moduleId, id),
       otherCost: () => api.modules.removeOtherCost(moduleId, id),
       assembly: () => api.modules.removeAssembly(moduleId, id),
+      upa: () => api.modules.removeUPA(moduleId, id),
     };
     if (removers[lineType]) await withSave(removers[lineType], () => {});
   }
@@ -290,6 +302,8 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
       await withSave(() => api.modules.addOtherCost(moduleId, { description: row.name, cost: row.cost, notes: row.notes, code: row.code, category: row.category, supplier: row.supplier, unit: row.unit, markup: row.markup }), () => {});
     } else if (lineType === "assembly") {
       await withSave(() => api.modules.addAssembly(moduleId, { assemblyId: row.assemblyId, quantity: row.quantity, notes: row.notes, markup: row.markup }), () => {});
+    } else if (lineType === "upa") {
+      await withSave(() => api.modules.addUPA(moduleId, { upaId: row.upaId, quantity: row.quantity, notes: row.notes, markup: row.markup }), () => {});
     }
   }
 
@@ -307,6 +321,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
       subcontract: detail.subcontractLines ?? [],
       otherCost: detail.otherCostLines ?? [],
       assembly: detail.assemblyLines ?? [],
+      upa: detail.upaLines ?? [],
     };
     const secLines = linesBySection[sectionKey] ?? [];
     const idx = secLines.findIndex((l) => l.id === row.id);
@@ -343,6 +358,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
       subcontract: detail.subcontractLines ?? [],
       otherCost: detail.otherCostLines ?? [],
       assembly: detail.assemblyLines ?? [],
+      upa: detail.upaLines ?? [],
     };
     const secLines = [...(linesBySection[src.sectionKey] ?? [])];
     const fromIdx = secLines.findIndex((l) => l.id === src.id);
@@ -456,6 +472,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
       subcontract: (detail.subcontractLines ?? []).reduce((s, l) => s + lineAmount(l), 0),
       otherCost: (detail.otherCostLines ?? []).reduce((s, l) => s + lineAmount(l), 0),
       assembly: (detail.assemblyLines ?? []).reduce((s, l) => s + lineAmount(l), 0),
+      upa: (detail.upaLines ?? []).reduce((s, l) => s + lineAmount(l), 0),
     };
   }, [detail]);
 
@@ -727,6 +744,16 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
         <CatalogSearchModal
           onInsert={handleInsertCatalog}
           onClose={() => setShowCatalogModal(false)}
+        />
+      )}
+
+      {showUpaModal && (
+        <UpaPickerModal
+          onInsert={async (upa) => {
+            await withSave(() => api.modules.addUPA(moduleId, { upaId: upa.id, quantity: 1 }), () => {});
+            setShowUpaModal(false);
+          }}
+          onClose={() => setShowUpaModal(false)}
         />
       )}
 

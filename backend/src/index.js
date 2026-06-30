@@ -10,6 +10,7 @@ import assembliesRouter from "./routes/assemblies.js";
 import estimateRouter from "./routes/estimate.js";
 import suppliersRouter from "./routes/suppliers.js";
 import procurementRouter from "./routes/procurement.js";
+import upaRouter from "./routes/upa.js";
 import { makeCatalogRouter } from "./routes/catalogRouter.js";
 
 const app = express();
@@ -38,6 +39,7 @@ app.use("/api/assemblies", assembliesRouter);
 app.use("/api/estimate", estimateRouter);
 app.use("/api/suppliers", suppliersRouter);
 app.use("/api/procurement", procurementRouter);
+app.use("/api/upa", upaRouter);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {

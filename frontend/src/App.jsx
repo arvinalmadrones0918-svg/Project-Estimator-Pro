@@ -7,6 +7,7 @@ import ProjectWorkspace from "./workspace/ProjectWorkspace";
 import CatalogPage from "./catalog/CatalogPage";
 import SuppliersPage from "./procurement/SuppliersPage";
 import ProcurementPage from "./procurement/ProcurementPage";
+import UpaPage from "./upa/UpaPage";
 import { catalogApis } from "./catalog/catalogApi";
 import { useTheme } from "./hooks/useTheme";
 
@@ -83,6 +84,7 @@ const CATALOG_TABS = [
 const TABS = [
   { key: "dashboard", label: "Projects" },
   ...CATALOG_TABS,
+  { key: "rate-analysis", label: "Rate Analysis", component: UpaPage },
   { key: "suppliers", label: "Suppliers", component: SuppliersPage },
   { key: "procurement", label: "Procurement", component: ProcurementPage },
   { key: "modules", label: "Work Modules", component: ModulesPage },

@@ -216,6 +216,25 @@ router.post("/:id/items/assembly", (req, res) => {
   res.status(201).json(db.prepare("SELECT * FROM assembly_items WHERE id = ?").get(result.lastInsertRowid));
 });
 
+// UPA item: an assembly may reference one or more Unit Price Analyses.
+router.post("/:id/items/upa", (req, res) => {
+  const assemblyId = Number(req.params.id);
+  const { childUpaId, quantity, notes } = req.body;
+  if (!childUpaId || quantity == null) {
+    return res.status(400).json({ error: "childUpaId and quantity are required" });
+  }
+  const upa = db.prepare("SELECT id FROM unit_price_analyses WHERE id = ?").get(Number(childUpaId));
+  if (!upa) return res.status(400).json({ error: "childUpaId does not exist" });
+  const result = db
+    .prepare(
+      `INSERT INTO assembly_items (assemblyId, itemType, childUpaId, quantity, notes, createdAt, updatedAt)
+       VALUES (?, 'upa', ?, ?, ?, datetime('now'), datetime('now'))`
+    )
+    .run(assemblyId, Number(childUpaId), Number(quantity), notes ?? null);
+  touchAssembly(assemblyId);
+  res.status(201).json(db.prepare("SELECT * FROM assembly_items WHERE id = ?").get(result.lastInsertRowid));
+});
+
 router.put("/:id/items/:itemId", (req, res) => {
   const itemId = Number(req.params.itemId);
   const existing = db.prepare("SELECT * FROM assembly_items WHERE id = ?").get(itemId);

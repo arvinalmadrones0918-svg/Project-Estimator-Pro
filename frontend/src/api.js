@@ -102,6 +102,10 @@ export const api = {
 
     sortLines: (id, lineType, items) =>
       request(`/modules/${id}/lines/sort`, { method: "PATCH", body: JSON.stringify({ lineType, items }) }),
+
+    addUPA: (id, data) => request(`/modules/${id}/upa`, { method: "POST", body: JSON.stringify(data) }),
+    updateUPA: (id, lineId, data) => request(`/modules/${id}/upa/${lineId}`, { method: "PUT", body: JSON.stringify(data) }),
+    removeUPA: (id, lineId) => request(`/modules/${id}/upa/${lineId}`, { method: "DELETE" }),
   },
   estimate: {
     // Calculation (engine = single source of truth)
@@ -153,5 +157,22 @@ export const api = {
     packages: (groupBy) => request(`/procurement/packages${qs({ groupBy })}`),
     rfq: (params) => request(`/procurement/rfq${qs(params)}`),
     audit: (materialId, limit) => request(`/procurement/audit${qs({ materialId, limit })}`),
+  },
+  upa: {
+    list: (params) => request(`/upa${qs(params)}`),
+    filters: () => request("/upa/filters"),
+    get: (id) => request(`/upa/${id}`),
+    calculate: (id) => request(`/upa/${id}/calculate`),
+    create: (data) => request("/upa", { method: "POST", body: JSON.stringify(data) }),
+    update: (id, data) => request(`/upa/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    duplicate: (id) => request(`/upa/${id}/duplicate`, { method: "POST" }),
+    remove: (id) => request(`/upa/${id}`, { method: "DELETE" }),
+    addResource: (id, data) => request(`/upa/${id}/resources`, { method: "POST", body: JSON.stringify(data) }),
+    updateResource: (id, resId, data) => request(`/upa/${id}/resources/${resId}`, { method: "PUT", body: JSON.stringify(data) }),
+    removeResource: (id, resId) => request(`/upa/${id}/resources/${resId}`, { method: "DELETE" }),
+    sortResources: (id, items) => request(`/upa/${id}/resources/sort`, { method: "PATCH", body: JSON.stringify({ items }) }),
+    versions: (id) => request(`/upa/${id}/versions`),
+    version: (id, versionId) => request(`/upa/${id}/versions/${versionId}`),
+    createVersion: (id, note) => request(`/upa/${id}/versions`, { method: "POST", body: JSON.stringify({ note }) }),
   },
 };

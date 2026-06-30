@@ -605,6 +605,104 @@ db.exec(`
 // Per-material selection pointer (which quotation is the chosen one).
 ensureColumn("materials", "selectedQuotationId", "selectedQuotationId INTEGER REFERENCES material_quotations(id)");
 
+// Phase 7: Rate Analysis / Unit Price Analysis (UPA) engine.
+db.exec(`
+  -- A reusable Unit Price Analysis: a recipe of resources that produces a
+  -- unit rate for one unit of work (e.g. "1 m³ of reinforced concrete").
+  -- Regional factors adjust the computed direct cost into the final unit rate.
+  CREATE TABLE IF NOT EXISTS unit_price_analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    description TEXT NOT NULL,
+    trade TEXT,
+    category TEXT,
+    subcategory TEXT,
+    unit TEXT NOT NULL DEFAULT 'unit',
+    revision INTEGER NOT NULL DEFAULT 0,
+    version INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'active',
+    remarks TEXT,
+    -- Regional factors: multipliers default 1, additive per-unit amounts default 0.
+    locationAdjustment REAL NOT NULL DEFAULT 1,
+    regionalMultiplier REAL NOT NULL DEFAULT 1,
+    transportation REAL NOT NULL DEFAULT 0,
+    mobilization REAL NOT NULL DEFAULT 0,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A resource line within a UPA. resourceType selects which catalog FK
+  -- applies (material/labor/equipment) or it's a direct subcontract/other.
+  -- frozenCost is the price snapshot stored on the UPA; the catalog's live
+  -- price is read separately as "current cost" for drift display.
+  CREATE TABLE IF NOT EXISTS upa_resources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    upaId INTEGER NOT NULL REFERENCES unit_price_analyses(id) ON DELETE CASCADE,
+    resourceType TEXT NOT NULL,
+    materialId INTEGER REFERENCES materials(id),
+    specializationId INTEGER REFERENCES labor_specializations(id),
+    equipmentId INTEGER REFERENCES equipment(id),
+    description TEXT,
+    quantity REAL NOT NULL DEFAULT 0,
+    unit TEXT,
+    wastePct REAL NOT NULL DEFAULT 0,
+    -- Labor productivity
+    crew REAL,
+    outputPerDay REAL,
+    outputPerHour REAL,
+    laborHours REAL,
+    manhours REAL,
+    -- Equipment productivity
+    operatingHours REAL,
+    idleFactor REAL NOT NULL DEFAULT 0,
+    fuelConsumption REAL,
+    operatorCost REAL,
+    frozenCost REAL NOT NULL DEFAULT 0,
+    notes TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Frozen historical snapshots of a UPA for version comparison.
+  CREATE TABLE IF NOT EXISTS upa_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    upaId INTEGER NOT NULL REFERENCES unit_price_analyses(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    revision INTEGER NOT NULL,
+    note TEXT,
+    snapshot TEXT NOT NULL,
+    totals TEXT NOT NULL,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A work module's reference to a UPA. The full cost-type breakdown is frozen
+  -- per unit at entry (the price-freeze rule), so future UPA/catalog edits
+  -- never change this estimate.
+  CREATE TABLE IF NOT EXISTS module_upa (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workModuleId INTEGER NOT NULL REFERENCES work_modules(id) ON DELETE CASCADE,
+    upaId INTEGER NOT NULL REFERENCES unit_price_analyses(id),
+    quantity REAL NOT NULL DEFAULT 1,
+    unitRateAtEntry REAL NOT NULL DEFAULT 0,
+    matCostAtEntry REAL NOT NULL DEFAULT 0,
+    laborCostAtEntry REAL NOT NULL DEFAULT 0,
+    equipCostAtEntry REAL NOT NULL DEFAULT 0,
+    subCostAtEntry REAL NOT NULL DEFAULT 0,
+    otherCostAtEntry REAL NOT NULL DEFAULT 0,
+    notes TEXT,
+    markup REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+// Assemblies may reference UPA records (itemType 'upa' carries childUpaId).
+ensureColumn("assembly_items", "childUpaId", "childUpaId INTEGER REFERENCES unit_price_analyses(id)");
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -652,6 +750,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_quotations_isSelected ON material_quotations(isSelected);
   CREATE INDEX IF NOT EXISTS idx_quotations_deletedAt ON material_quotations(deletedAt);
   CREATE INDEX IF NOT EXISTS idx_quotation_audit_materialId ON quotation_audit(materialId);
+  CREATE INDEX IF NOT EXISTS idx_upa_status ON unit_price_analyses(status);
+  CREATE INDEX IF NOT EXISTS idx_upa_deletedAt ON unit_price_analyses(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_upa_trade ON unit_price_analyses(trade);
+  CREATE INDEX IF NOT EXISTS idx_upa_resources_upaId ON upa_resources(upaId);
+  CREATE INDEX IF NOT EXISTS idx_upa_versions_upaId ON upa_versions(upaId);
+  CREATE INDEX IF NOT EXISTS idx_module_upa_workModuleId ON module_upa(workModuleId);
+  CREATE INDEX IF NOT EXISTS idx_module_upa_upaId ON module_upa(upaId);
+  CREATE INDEX IF NOT EXISTS idx_assembly_items_childUpaId ON assembly_items(childUpaId);
 `);
 
 // Seed the standard CSI-style WBS tree once, on first run only. Never

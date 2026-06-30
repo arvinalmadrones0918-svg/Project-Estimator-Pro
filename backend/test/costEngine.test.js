@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyIndirectCosts } from "../src/services/costEngine.js";
+import { applyIndirectCosts, __upaResourceAmountForTest } from "../src/services/costEngine.js";
 
 // The indirect-cost waterfall is the financial heart of the engine. These
 // tests pin the order of operations and every item method/scope combination.
@@ -100,6 +100,28 @@ test("full waterfall in correct order", () => {
   // retention = 10% of 1386.21
   assert.ok(Math.abs(r.retentionTotal - 138.621) < 1e-9);
   assert.ok(Math.abs(r.netPayable - 1247.589) < 1e-9);
+});
+
+// ── UPA resource amount (waste + idle factor) ───────────────────────────────
+
+test("UPA material amount applies waste percentage", () => {
+  const amount = __upaResourceAmountForTest({ resourceType: "material", quantity: 10, frozenCost: 5, wastePct: 10 });
+  assert.ok(Math.abs(amount - 55) < 1e-9); // 10 * 5 * 1.10
+});
+
+test("UPA labor amount with no waste is quantity * cost", () => {
+  const amount = __upaResourceAmountForTest({ resourceType: "labor", quantity: 8, frozenCost: 20, wastePct: 0 });
+  assert.equal(amount, 160);
+});
+
+test("UPA equipment amount applies both waste and idle factor", () => {
+  const amount = __upaResourceAmountForTest({ resourceType: "equipment", quantity: 4, frozenCost: 100, wastePct: 0, idleFactor: 25 });
+  assert.equal(amount, 500); // 4 * 100 * 1.25
+});
+
+test("UPA idle factor only applies to equipment, not material", () => {
+  const amount = __upaResourceAmountForTest({ resourceType: "material", quantity: 4, frozenCost: 100, idleFactor: 25 });
+  assert.equal(amount, 400); // idle ignored for material
 });
 
 test("multiple indirect lines accumulate and are itemised", () => {
