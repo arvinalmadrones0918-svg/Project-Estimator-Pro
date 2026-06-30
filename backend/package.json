@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --experimental-sqlite src/index.js",
-    "seed": "node --experimental-sqlite src/seed.js"
+    "seed": "node --experimental-sqlite src/seed.js",
+    "test": "node --test"
   },
   "dependencies": {
     "cors": "^2.8.5",

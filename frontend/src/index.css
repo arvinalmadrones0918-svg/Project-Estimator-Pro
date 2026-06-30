@@ -1627,3 +1627,109 @@ th {
 .context-menu-icon { width: 1em; text-align: center; }
 .context-menu-shortcut { margin-left: auto; color: var(--muted); font-size: 0.76rem; }
 .context-menu-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 5 – COST ENGINE PANEL
+   ═══════════════════════════════════════════════════════════════ */
+
+.cost-engine-panel { display: flex; flex-direction: column; gap: 1.5rem; padding-bottom: 2rem; }
+.cost-engine-panel h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+
+/* Scenario bar */
+.scenario-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.scenario-bar label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+.scenario-bar select { padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text); }
+.scenario-add-form, .indirect-add-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: var(--hover-bg);
+  border-radius: 8px;
+}
+.scenario-add-form input, .scenario-add-form select,
+.indirect-add-form input, .indirect-add-form select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+/* WBS rollup table */
+.wbs-rollup, .indirect-editor, .waterfall, .revisions {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+.wbs-rollup-table, .indirect-table, .waterfall-table, .revisions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.wbs-rollup-table th, .indirect-table th, .revisions-table th {
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+}
+.wbs-rollup-table td, .revisions-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.wbs-rollup-table td:not(:first-child) { text-align: right; }
+.wbs-rollup-table tfoot td { border-top: 2px solid var(--border); padding-top: 8px; }
+.wbs-rollup-table tfoot td:last-child { text-align: right; }
+
+/* Indirect editor */
+.indirect-editor-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.indirect-editor-actions { display: flex; gap: 0.5rem; }
+.indirect-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.indirect-table tr.row-disabled td { opacity: 0.45; }
+.inline-edit {
+  width: 100%;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.84rem;
+}
+.inline-edit:hover, .inline-edit:focus { border-color: var(--input-border); background: var(--input-bg); outline: none; }
+.value-edit { width: 70px; }
+.indirect-table select {
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+.indirect-amount { text-align: right; font-weight: 500; }
+.kind-badge.kind-vat { color: #e0455f; }
+.kind-badge.kind-discount { color: #1faa59; }
+.kind-badge.kind-retention { color: #9b51e0; }
+
+/* Waterfall */
+.waterfall-table td { padding: 5px 8px; }
+.waterfall-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.waterfall-table .indent { padding-left: 1.5rem; color: var(--muted); }
+.waterfall-add td:last-child { color: var(--success); }
+.waterfall-sub td:last-child { color: var(--danger); }
+.waterfall-subtotal td { border-top: 1px solid var(--border); font-weight: 600; }
+.waterfall-total td { border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent); font-weight: 700; font-size: 1.02rem; }
+.waterfall-memo td { color: var(--muted); font-style: italic; font-size: 0.82rem; }
+.calc-meta { margin-top: 0.6rem; font-size: 0.75rem; color: var(--muted); }
+
+/* Revisions */
+.revisions-table td:last-child, .revisions-table th:last-child { text-align: right; }

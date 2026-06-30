@@ -28,8 +28,8 @@ export default function BottomSummaryBar({ totals }) {
         <strong>{money(totals.directCost)}</strong>
       </div>
       <div className="bottom-summary-item total">
-        <span>Project Total</span>
-        <strong>{money(totals.projectTotal)}</strong>
+        <span>Final Tender Price</span>
+        <strong>{money(totals.finalTenderPrice ?? totals.projectTotal)}</strong>
       </div>
     </div>
   );

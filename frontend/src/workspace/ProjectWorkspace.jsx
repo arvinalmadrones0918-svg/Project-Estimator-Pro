@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import Spinner from "../components/Spinner";
 import ErrorBanner from "../components/ErrorBanner";
 import WbsTree from "./WbsTree";
 import NodeEditor from "./NodeEditor";
 import ProjectInfoPanel from "./ProjectInfoPanel";
-import CostSummaryPanel from "./CostSummaryPanel";
+import CostEnginePanel from "./CostEnginePanel";
 import BottomSummaryBar from "./BottomSummaryBar";
 
 const LEFT_NAV = [
@@ -14,19 +14,6 @@ const LEFT_NAV = [
   { key: "costSummary", label: "Cost Summary" },
   { key: "reports", label: "Reports" },
 ];
-
-function emptyTotals() {
-  return {
-    materialCost: 0,
-    laborCost: 0,
-    equipmentCost: 0,
-    subcontractCost: 0,
-    otherCost: 0,
-    assemblyCost: 0,
-    directCost: 0,
-    projectTotal: 0,
-  };
-}
 
 export default function ProjectWorkspace({ projectId, onBack }) {
   const [project, setProject] = useState(null);
@@ -38,6 +25,11 @@ export default function ProjectWorkspace({ projectId, onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Phase 5: all totals come from the cost engine (single source of truth).
+  const [calc, setCalc] = useState(null);
+  const [scenarios, setScenarios] = useState([]);
+  const [activeScenarioId, setActiveScenarioId] = useState(null);
+
   function loadAll() {
     setLoading(true);
     Promise.all([
@@ -48,12 +40,16 @@ export default function ProjectWorkspace({ projectId, onBack }) {
       api.laborSpecializations.list(),
       api.equipment.list(),
       api.assemblies.list(),
+      api.estimate.scenarios(projectId),
     ])
-      .then(([proj, cats, mods, materials, laborSpecializations, equipment, assemblies]) => {
+      .then(([proj, cats, mods, materials, laborSpecializations, equipment, assemblies, scens]) => {
         setProject(proj);
         setCategories(cats);
         setModules(mods);
         setCatalogs({ materials, laborSpecializations, equipment, assemblies });
+        setScenarios(scens);
+        const primary = scens.find((s) => s.isPrimary) ?? null;
+        setActiveScenarioId(primary ? primary.id : null);
         if (mods.length > 0 && !selectedModuleId) setSelectedModuleId(mods[0].id);
       })
       .catch((e) => setError(e.message))
@@ -62,7 +58,16 @@ export default function ProjectWorkspace({ projectId, onBack }) {
 
   useEffect(loadAll, [projectId]);
 
-  // Alt+1..4 jump between the left-nav sections without touching the mouse.
+  // Recalculate via the engine whenever the scenario changes or a mutation
+  // signals a change. Only the affected modules recompute server-side.
+  const recalc = useCallback(() => {
+    api.estimate.calculateProject(projectId, { scenarioId: activeScenarioId })
+      .then(setCalc)
+      .catch((e) => setError(e.message));
+  }, [projectId, activeScenarioId]);
+
+  useEffect(recalc, [recalc]);
+
   useEffect(() => {
     function onKeyDown(e) {
       if (!e.altKey) return;
@@ -78,6 +83,14 @@ export default function ProjectWorkspace({ projectId, onBack }) {
 
   function refreshModules() {
     api.modules.list({ projectId }).then(setModules).catch((e) => setError(e.message));
+    recalc();
+  }
+
+  function refreshScenarios(selectId) {
+    api.estimate.scenarios(projectId).then((scens) => {
+      setScenarios(scens);
+      if (selectId !== undefined) setActiveScenarioId(selectId);
+    });
   }
 
   async function handleAddModule(wbsCategoryId, wbsSubcategoryId) {
@@ -93,29 +106,22 @@ export default function ProjectWorkspace({ projectId, onBack }) {
     }
   }
 
-  const totals = useMemo(() => {
-    const totalsObj = modules.reduce((acc, m) => {
-      acc.materialCost += m.materialCost;
-      acc.laborCost += m.laborCost;
-      acc.equipmentCost += m.equipmentCost;
-      acc.subcontractCost += m.subcontractCost;
-      acc.otherCost += m.otherCost;
-      acc.assemblyCost += m.assemblyCost;
-      return acc;
-    }, emptyTotals());
-    totalsObj.directCost =
-      totalsObj.materialCost +
-      totalsObj.laborCost +
-      totalsObj.equipmentCost +
-      totalsObj.subcontractCost +
-      totalsObj.otherCost +
-      totalsObj.assemblyCost;
-    totalsObj.projectTotal = totalsObj.directCost;
-    return totalsObj;
-  }, [modules]);
-
   if (loading) return <Spinner label="Loading project workspace…" />;
   if (!project) return <ErrorBanner message={error || "Project not found."} />;
+
+  // Bottom-bar totals derived from the engine result.
+  const w = calc?.waterfall;
+  const b = calc?.directCostBreakdown;
+  const totals = {
+    materialCost: b?.materialCost ?? 0,
+    laborCost: b?.laborCost ?? 0,
+    equipmentCost: b?.equipmentCost ?? 0,
+    subcontractCost: b?.subcontractCost ?? 0,
+    otherCost: b?.otherCost ?? 0,
+    directCost: w?.directCost ?? 0,
+    finalTenderPrice: w?.finalTenderPrice ?? 0,
+    projectTotal: w?.finalTenderPrice ?? w?.directCost ?? 0,
+  };
 
   return (
     <div className="workspace">
@@ -174,7 +180,16 @@ export default function ProjectWorkspace({ projectId, onBack }) {
 
         {leftNav === "costSummary" && (
           <div className="workspace-full">
-            <CostSummaryPanel totals={totals} />
+            <CostEnginePanel
+              projectId={projectId}
+              calc={calc}
+              scenarios={scenarios}
+              activeScenarioId={activeScenarioId}
+              onScenarioChange={setActiveScenarioId}
+              onScenariosChanged={refreshScenarios}
+              onRecalc={recalc}
+              setError={setError}
+            />
           </div>
         )}
 

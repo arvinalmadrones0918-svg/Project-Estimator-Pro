@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db } from "../db.js";
+import { calculateModule, calculateProject, calculateAssemblyResult } from "../services/costEngine.js";
 
 const router = Router();
 
@@ -77,13 +78,10 @@ function getOtherCostLines(workModuleId) {
     .map((row) => ({ ...row, lineType: "otherCost" }));
 }
 
+// Assembly costs are owned by the cost engine (the single source of truth);
+// this thin wrapper keeps the route code readable.
 export function getAssemblyTotalCost(assemblyId) {
-  const items = db.prepare("SELECT itemType, quantity, unitPriceAtEntry, hourlyRateAtEntry, cost FROM assembly_items WHERE assemblyId = ?").all(assemblyId);
-  return items.reduce((sum, item) => {
-    if (item.itemType === "material" || item.itemType === "equipment") return sum + item.quantity * item.unitPriceAtEntry;
-    if (item.itemType === "labor") return sum + item.quantity * item.hourlyRateAtEntry;
-    return sum + (item.cost ?? 0);
-  }, 0);
+  return calculateAssemblyResult(assemblyId).total;
 }
 
 function getAssemblyLines(workModuleId) {
@@ -139,9 +137,10 @@ function withCostBreakdown(workModule) {
   };
 }
 
+// Project direct cost is delegated to the engine so the dashboard rollup and
+// the estimate calculation never diverge.
 export function getProjectTotalCost(projectId) {
-  const modules = db.prepare("SELECT * FROM work_modules WHERE projectId = ? AND deletedAt IS NULL").all(projectId);
-  return modules.reduce((sum, m) => sum + withCostBreakdown(m).totalCost, 0);
+  return calculateProject(projectId).waterfall.directCost;
 }
 
 router.get("/", (req, res) => {

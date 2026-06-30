@@ -403,6 +403,138 @@ for (const t of ["module_subcontract", "module_other_costs"]) {
   ensureColumn(t, "unit", "unit TEXT");
 }
 
+// Phase 5: nested assemblies — an assembly_item can reference a child assembly.
+// (CHECK constraint on itemType can't be altered in SQLite, but it only
+// restricts the original set; new rows use childAssemblyId with itemType
+// 'assembly', which the engine recognises regardless of the old CHECK.)
+ensureColumn("assembly_items", "childAssemblyId", "childAssemblyId INTEGER REFERENCES assemblies(id)");
+
+// The original assembly_items CHECK forbids itemType='assembly'. SQLite can't
+// drop a CHECK in place, so rebuild the table without it (only when the old
+// CHECK is still present) — copying every existing row verbatim first.
+{
+  const tableSql = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='assembly_items'")
+    .get()?.sql ?? "";
+  if (tableSql.includes("CHECK") && tableSql.includes("itemType IN")) {
+    db.exec("PRAGMA foreign_keys = OFF;");
+    db.exec("BEGIN");
+    try {
+      db.exec(`
+        CREATE TABLE assembly_items_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          assemblyId INTEGER NOT NULL REFERENCES assemblies(id) ON DELETE CASCADE,
+          itemType TEXT NOT NULL,
+          materialId INTEGER REFERENCES materials(id),
+          specializationId INTEGER REFERENCES labor_specializations(id),
+          equipmentId INTEGER REFERENCES equipment(id),
+          childAssemblyId INTEGER REFERENCES assemblies(id),
+          description TEXT,
+          quantity REAL,
+          unitPriceAtEntry REAL,
+          hourlyRateAtEntry REAL,
+          cost REAL,
+          notes TEXT,
+          sortOrder INTEGER NOT NULL DEFAULT 0,
+          createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+          updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO assembly_items_new
+          (id, assemblyId, itemType, materialId, specializationId, equipmentId, childAssemblyId,
+           description, quantity, unitPriceAtEntry, hourlyRateAtEntry, cost, notes, sortOrder, createdAt, updatedAt)
+        SELECT id, assemblyId, itemType, materialId, specializationId, equipmentId, childAssemblyId,
+               description, quantity, unitPriceAtEntry, hourlyRateAtEntry, cost, notes, sortOrder, createdAt, updatedAt
+        FROM assembly_items;
+        DROP TABLE assembly_items;
+        ALTER TABLE assembly_items_new RENAME TO assembly_items;
+        CREATE INDEX IF NOT EXISTS idx_assembly_items_assemblyId ON assembly_items(assemblyId);
+        CREATE INDEX IF NOT EXISTS idx_assembly_items_materialId ON assembly_items(materialId);
+        CREATE INDEX IF NOT EXISTS idx_assembly_items_specializationId ON assembly_items(specializationId);
+        CREATE INDEX IF NOT EXISTS idx_assembly_items_equipmentId ON assembly_items(equipmentId);
+        CREATE INDEX IF NOT EXISTS idx_assembly_items_childAssemblyId ON assembly_items(childAssemblyId);
+      `);
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+    db.exec("PRAGMA foreign_keys = ON;");
+  }
+}
+
+// Phase 5: Calculation engine — scenarios, indirect costs, revisions, audit.
+db.exec(`
+  -- An estimate scenario is an independent costing view of a project
+  -- (Budget / Tender / Revised / Value-Engineering). Each holds its own
+  -- indirect-cost configuration and produces independent totals. The line
+  -- items themselves live on the project's work modules and are shared; a
+  -- scenario layers its own indirect costs and (optionally) a frozen revision
+  -- snapshot on top.
+  CREATE TABLE IF NOT EXISTS estimate_scenarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'tender',
+    description TEXT,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    isPrimary INTEGER NOT NULL DEFAULT 0,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Configurable indirect-cost line. "kind" places it in the waterfall:
+  --   indirect  -> added to direct cost to form the subtotal
+  --   vat       -> added to subtotal to form the bid price
+  --   discount  -> subtracted from bid price to form the final tender price
+  --   retention -> memo deduction shown against the final tender price
+  -- "method" is percentage|fixed; "appliesTo" is project|module (a fixed
+  -- per-module amount is multiplied by the module count).
+  CREATE TABLE IF NOT EXISTS indirect_cost_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    scenarioId INTEGER REFERENCES estimate_scenarios(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'indirect',
+    method TEXT NOT NULL DEFAULT 'percentage',
+    value REAL NOT NULL DEFAULT 0,
+    appliesTo TEXT NOT NULL DEFAULT 'project',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A frozen snapshot of a scenario at a point in time. Revision 0 is the
+  -- baseline; each subsequent revision preserves the full line-item/price/
+  -- quantity/assembly state and the calculated totals as JSON so historical
+  -- estimates can always be reproduced exactly.
+  CREATE TABLE IF NOT EXISTS estimate_revisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    scenarioId INTEGER REFERENCES estimate_scenarios(id) ON DELETE CASCADE,
+    revisionNumber INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    snapshot TEXT NOT NULL,
+    totals TEXT NOT NULL,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Append-only audit of every project-level calculation: the engine version,
+  -- the formula applied, a summary of the source data, and the resulting
+  -- totals, each stamped with a timestamp.
+  CREATE TABLE IF NOT EXISTS calculation_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    scenarioId INTEGER REFERENCES estimate_scenarios(id) ON DELETE CASCADE,
+    calcVersion TEXT NOT NULL,
+    formula TEXT NOT NULL,
+    sourceData TEXT NOT NULL,
+    totals TEXT NOT NULL,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -436,6 +568,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_module_subcontract_workModuleId ON module_subcontract(workModuleId);
   CREATE INDEX IF NOT EXISTS idx_module_other_costs_workModuleId ON module_other_costs(workModuleId);
   CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+  CREATE INDEX IF NOT EXISTS idx_scenarios_projectId ON estimate_scenarios(projectId);
+  CREATE INDEX IF NOT EXISTS idx_indirect_projectId ON indirect_cost_items(projectId);
+  CREATE INDEX IF NOT EXISTS idx_indirect_scenarioId ON indirect_cost_items(scenarioId);
+  CREATE INDEX IF NOT EXISTS idx_revisions_projectId ON estimate_revisions(projectId);
+  CREATE INDEX IF NOT EXISTS idx_revisions_scenarioId ON estimate_revisions(scenarioId);
+  CREATE INDEX IF NOT EXISTS idx_audit_projectId ON calculation_audit(projectId);
 `);
 
 // Seed the standard CSI-style WBS tree once, on first run only. Never

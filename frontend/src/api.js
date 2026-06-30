@@ -103,4 +103,30 @@ export const api = {
     sortLines: (id, lineType, items) =>
       request(`/modules/${id}/lines/sort`, { method: "PATCH", body: JSON.stringify({ lineType, items }) }),
   },
+  estimate: {
+    // Calculation (engine = single source of truth)
+    calculateProject: (projectId, params) => request(`/estimate/project/${projectId}/calculate${qs(params)}`),
+    calculateModule: (moduleId) => request(`/estimate/module/${moduleId}/calculate`),
+    calculateAssembly: (assemblyId) => request(`/estimate/assembly/${assemblyId}/calculate`),
+
+    // Scenarios
+    scenarios: (projectId) => request(`/estimate/scenarios${qs({ projectId })}`),
+    createScenario: (data) => request("/estimate/scenarios", { method: "POST", body: JSON.stringify(data) }),
+    updateScenario: (id, data) => request(`/estimate/scenarios/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    removeScenario: (id) => request(`/estimate/scenarios/${id}`, { method: "DELETE" }),
+    duplicateScenario: (id) => request(`/estimate/scenarios/${id}/duplicate`, { method: "POST" }),
+
+    // Indirect costs
+    indirectCosts: (projectId, scenarioId) => request(`/estimate/indirect-costs${qs({ projectId, scenarioId })}`),
+    createIndirect: (data) => request("/estimate/indirect-costs", { method: "POST", body: JSON.stringify(data) }),
+    updateIndirect: (id, data) => request(`/estimate/indirect-costs/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    removeIndirect: (id) => request(`/estimate/indirect-costs/${id}`, { method: "DELETE" }),
+    seedDefaultIndirect: (data) => request("/estimate/indirect-costs/seed-defaults", { method: "POST", body: JSON.stringify(data) }),
+
+    // Revisions & audit
+    revisions: (projectId, scenarioId) => request(`/estimate/revisions${qs({ projectId, scenarioId })}`),
+    revision: (id) => request(`/estimate/revisions/${id}`),
+    createRevision: (data) => request("/estimate/revisions", { method: "POST", body: JSON.stringify(data) }),
+    audit: (projectId, limit) => request(`/estimate/audit${qs({ projectId, limit })}`),
+  },
 };

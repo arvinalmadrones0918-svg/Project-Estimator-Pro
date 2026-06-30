@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db } from "../db.js";
+import { calculateAssemblyResult } from "../services/costEngine.js";
 
 const router = Router();
 
@@ -32,10 +33,12 @@ function getAssemblyItems(assemblyId) {
     });
 }
 
+// totalCost (and its cost-type breakdown) comes from the engine — the single
+// source of truth — so the per-item list here is display-only.
 function withTotalCost(assembly) {
   const items = getAssemblyItems(assembly.id);
-  const totalCost = items.reduce((sum, item) => sum + item.cost, 0);
-  return { ...assembly, items, totalCost };
+  const calc = calculateAssemblyResult(assembly.id);
+  return { ...assembly, items, totalCost: calc.total, breakdown: calc };
 }
 
 router.get("/", (req, res) => {
@@ -187,6 +190,28 @@ router.post("/:id/items/other-costs", (req, res) => {
        VALUES (?, 'other', ?, ?, ?, datetime('now'), datetime('now'))`
     )
     .run(assemblyId, description, Number(cost), notes ?? null);
+  touchAssembly(assemblyId);
+  res.status(201).json(db.prepare("SELECT * FROM assembly_items WHERE id = ?").get(result.lastInsertRowid));
+});
+
+// Nested assembly item: reference another assembly as a child of this one.
+router.post("/:id/items/assembly", (req, res) => {
+  const assemblyId = Number(req.params.id);
+  const { childAssemblyId, quantity, notes } = req.body;
+  if (!childAssemblyId || quantity == null) {
+    return res.status(400).json({ error: "childAssemblyId and quantity are required" });
+  }
+  if (Number(childAssemblyId) === assemblyId) {
+    return res.status(400).json({ error: "An assembly cannot contain itself" });
+  }
+  const child = db.prepare("SELECT id FROM assemblies WHERE id = ?").get(Number(childAssemblyId));
+  if (!child) return res.status(400).json({ error: "childAssemblyId does not exist" });
+  const result = db
+    .prepare(
+      `INSERT INTO assembly_items (assemblyId, itemType, childAssemblyId, quantity, notes, createdAt, updatedAt)
+       VALUES (?, 'assembly', ?, ?, ?, datetime('now'), datetime('now'))`
+    )
+    .run(assemblyId, Number(childAssemblyId), Number(quantity), notes ?? null);
   touchAssembly(assemblyId);
   res.status(201).json(db.prepare("SELECT * FROM assembly_items WHERE id = ?").get(result.lastInsertRowid));
 });
