@@ -1998,3 +1998,29 @@ textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(-
 .gr-summary-card.total strong { color: var(--accent); font-size: 1.05rem; }
 
 @media (max-width: 900px) { .gr-summary-body { grid-template-columns: 1fr; } .gr-params-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 11 – EXCEL IMPORT / EXPORT
+   ═══════════════════════════════════════════════════════════════ */
+
+.wizard-steps { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0 1.25rem; }
+.wizard-step { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; border-radius: 20px; background: var(--hover-bg); color: var(--muted); font-size: 0.82rem; }
+.wizard-step.active { background: var(--accent); color: #fff; }
+.wizard-step.done { background: rgba(31,170,89,0.15); color: var(--success); }
+.wizard-step-num { display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.12); font-size: 0.72rem; }
+.wizard-step.active .wizard-step-num { background: rgba(255,255,255,0.25); }
+
+.wizard-body { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+.wizard-body > label { display: flex; flex-direction: column; gap: 4px; max-width: 360px; margin-bottom: 0.75rem; font-size: 0.85rem; }
+.wizard-body select, .wizard-body input { padding: 0.4rem 0.55rem; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+
+.map-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+.map-table th, .map-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+.map-table select { width: 100%; }
+
+.export-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.85rem; margin-top: 1rem; }
+.export-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.export-card strong { font-size: 0.92rem; }
+.export-card-actions { display: flex; gap: 0.75rem; }
+.export-card.multi { border-color: var(--accent); background: rgba(47,111,235,0.06); text-decoration: none; color: var(--text); }
+.export-card.multi span { font-size: 0.78rem; color: var(--muted); }

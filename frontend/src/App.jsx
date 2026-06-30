@@ -11,6 +11,7 @@ import UpaPage from "./upa/UpaPage";
 import ReportsPage from "./reports/ReportsPage";
 import TenderingPage from "./tendering/TenderingPage";
 import GeneralRequirementsPage from "./gr/GeneralRequirementsPage";
+import ExcelPage from "./excel/ExcelPage";
 import GlobalSearch from "./tendering/GlobalSearch";
 import { catalogApis } from "./catalog/catalogApi";
 import { useTheme } from "./hooks/useTheme";
@@ -91,6 +92,7 @@ const TABS = [
   { key: "rate-analysis", label: "Rate Analysis", component: UpaPage },
   { key: "general-requirements", label: "General Requirements", component: GeneralRequirementsPage },
   { key: "reports", label: "Reports", component: ReportsPage },
+  { key: "excel", label: "Excel", component: ExcelPage },
   { key: "suppliers", label: "Suppliers", component: SuppliersPage },
   { key: "procurement", label: "Procurement", component: ProcurementPage },
   { key: "tendering", label: "Tendering", component: TenderingPage },

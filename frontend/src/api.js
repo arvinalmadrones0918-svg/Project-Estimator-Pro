@@ -218,6 +218,16 @@ api.tendering = {
   search: (q) => request(`/tendering/search${qs({ q })}`),
 };
 
+api.excel = {
+  entities: () => request("/excel/entities"),
+  templateUrl: (entity) => `/api/excel/template/${entity}`,
+  preview: (entity, rows, mapping) => request(`/excel/import/${entity}/preview`, { method: "POST", body: JSON.stringify({ rows, mapping }) }),
+  commit: (entity, rows, mapping, option) => request(`/excel/import/${entity}/commit`, { method: "POST", body: JSON.stringify({ rows, mapping, option }) }),
+  errorReportUrl: () => `/api/excel/error-report`,
+  exports: () => request("/excel/exports"),
+  summaryWorkbookUrl: (projectId) => `/api/excel/export/summary-workbook${qs({ projectId })}`,
+};
+
 const GR = "/general-requirements";
 api.gr = {
   categories: () => request(`${GR}/categories`),
