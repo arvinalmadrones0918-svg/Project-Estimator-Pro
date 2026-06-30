@@ -871,6 +871,100 @@ db.exec(`
   );
 `);
 
+// Phase 10: Professional General Requirements (GR) Builder — a dedicated
+// module, separate from work_modules, with its own tables.
+db.exec(`
+  -- A General Requirements estimate (the GR counterpart of a project's set of
+  -- work modules). Holds the project parameters that drive automatic
+  -- duration/area/personnel-based calculations.
+  CREATE TABLE IF NOT EXISTS gr_sheets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    projectId INTEGER REFERENCES projects(id),
+    description TEXT,
+    durationDays REAL NOT NULL DEFAULT 0,
+    workingDays REAL NOT NULL DEFAULT 0,
+    calendarMonths REAL NOT NULL DEFAULT 0,
+    projectArea REAL NOT NULL DEFAULT 0,
+    buildingCount REAL NOT NULL DEFAULT 1,
+    floorCount REAL NOT NULL DEFAULT 1,
+    projectValue REAL NOT NULL DEFAULT 0,
+    personnelCount REAL NOT NULL DEFAULT 0,
+    inflation REAL NOT NULL DEFAULT 0,
+    escalation REAL NOT NULL DEFAULT 0,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A GR line item. itemType selects an optional catalog/assembly/UPA
+  -- reference; method selects the estimating method (lump sum, unit rate,
+  -- %-of-direct/project/category, monthly/weekly/daily, rental, allowance,
+  -- formula). frozenCost is the price snapshot for catalog references.
+  CREATE TABLE IF NOT EXISTS gr_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sheetId INTEGER NOT NULL REFERENCES gr_sheets(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    itemType TEXT NOT NULL DEFAULT 'manual',
+    materialId INTEGER REFERENCES materials(id),
+    specializationId INTEGER REFERENCES labor_specializations(id),
+    equipmentId INTEGER REFERENCES equipment(id),
+    assemblyId INTEGER REFERENCES assemblies(id),
+    upaId INTEGER REFERENCES unit_price_analyses(id),
+    description TEXT NOT NULL,
+    unit TEXT,
+    method TEXT NOT NULL DEFAULT 'lumpSum',
+    quantity REAL NOT NULL DEFAULT 1,
+    rate REAL NOT NULL DEFAULT 0,
+    value REAL NOT NULL DEFAULT 0,
+    pct REAL NOT NULL DEFAULT 0,
+    durationValue REAL,
+    formula TEXT,
+    frozenCost REAL NOT NULL DEFAULT 0,
+    markup REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'included',
+    notes TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Reusable GR templates (Commercial Building, Hospital, ...) and their items.
+  CREATE TABLE IF NOT EXISTS gr_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    projectType TEXT,
+    description TEXT,
+    isBuiltIn INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS gr_template_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    templateId INTEGER NOT NULL REFERENCES gr_templates(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    unit TEXT,
+    method TEXT NOT NULL DEFAULT 'lumpSum',
+    quantity REAL NOT NULL DEFAULT 1,
+    rate REAL NOT NULL DEFAULT 0,
+    value REAL NOT NULL DEFAULT 0,
+    pct REAL NOT NULL DEFAULT 0,
+    formula TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Editable manpower templates used to populate the Project Staff category.
+  CREATE TABLE IF NOT EXISTS gr_staff_library (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    role TEXT NOT NULL,
+    monthlyRate REAL NOT NULL DEFAULT 0,
+    notes TEXT,
+    sortOrder INTEGER NOT NULL DEFAULT 0
+  );
+`);
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -938,7 +1032,53 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_addenda_projectId ON addenda(projectId);
   CREATE INDEX IF NOT EXISTS idx_rfis_projectId ON rfis(projectId);
   CREATE INDEX IF NOT EXISTS idx_change_log_entity ON change_log(entityType, entityId);
+  CREATE INDEX IF NOT EXISTS idx_gr_sheets_projectId ON gr_sheets(projectId);
+  CREATE INDEX IF NOT EXISTS idx_gr_sheets_deletedAt ON gr_sheets(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_gr_items_sheetId ON gr_items(sheetId);
+  CREATE INDEX IF NOT EXISTS idx_gr_items_category ON gr_items(category);
+  CREATE INDEX IF NOT EXISTS idx_gr_template_items_templateId ON gr_template_items(templateId);
 `);
+
+// Seed the project-staff library and a couple of built-in GR templates once.
+const grStaffCount = db.prepare("SELECT COUNT(*) AS c FROM gr_staff_library").get().c;
+if (grStaffCount === 0) {
+  const STAFF = [
+    ["Project Director", 12000], ["Construction Manager", 9000], ["Project Manager", 8000],
+    ["Resident Engineer", 6000], ["Mechanical Engineer", 5000], ["Electrical Engineer", 5000],
+    ["Civil Engineer", 5000], ["Structural Engineer", 5500], ["Architect", 5000],
+    ["Planning Engineer", 4800], ["QAQC Engineer", 4800], ["Safety Officer", 4000],
+    ["Quantity Surveyor", 4500], ["Cost Engineer", 4800], ["Document Controller", 2500],
+    ["Procurement Officer", 3500], ["Warehouse Supervisor", 3000], ["Storekeeper", 1800],
+    ["Timekeeper", 1500], ["Foreman", 2800], ["Administrative Staff", 1800],
+    ["Driver", 1200], ["Utility Worker", 1000],
+  ];
+  const ins = db.prepare("INSERT INTO gr_staff_library (role, monthlyRate, sortOrder) VALUES (?, ?, ?)");
+  STAFF.forEach(([role, rate], i) => ins.run(role, rate, i));
+}
+
+const grTemplateCount = db.prepare("SELECT COUNT(*) AS c FROM gr_templates WHERE isBuiltIn = 1").get().c;
+if (grTemplateCount === 0) {
+  // A compact built-in template; users can duplicate/extend it. method+pct/
+  // value/rate drive the calculation via the cost engine.
+  const COMMON = [
+    ["Mobilization / Demobilization", "Mobilization & demobilization", "ls", "lumpSum", 0, 0, 0],
+    ["Temporary Facilities", "Site office (monthly)", "month", "monthly", 0, 1500, 0],
+    ["Temporary Utilities", "Temporary power & water", "month", "monthly", 0, 800, 0],
+    ["Project Staff", "Project management team", "month", "monthly", 0, 25000, 0],
+    ["Safety Requirements", "PPE, signages & safety program", "%", "percentageOfDirect", 1.5, 0, 0],
+    ["Quality Assurance / Quality Control", "QA/QC program", "%", "percentageOfDirect", 1.0, 0, 0],
+    ["Bonds & Insurance", "Performance bond & CAR insurance", "%", "percentageOfProject", 2.0, 0, 0],
+    ["Permits & Government Fees", "Permits & government fees", "ls", "allowance", 0, 0, 5000],
+    ["Testing & Commissioning", "T&C of systems", "%", "percentageOfDirect", 0.75, 0, 0],
+    ["Project Closeout", "As-builts, O&M, final cleaning", "ls", "lumpSum", 0, 0, 3000],
+  ];
+  const insT = db.prepare("INSERT INTO gr_templates (name, projectType, description, isBuiltIn) VALUES (?, ?, ?, 1)");
+  const insI = db.prepare("INSERT INTO gr_template_items (templateId, category, description, unit, method, pct, rate, value, sortOrder) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  for (const tpl of ["Commercial Building", "Office Building", "Hospital", "Warehouse", "School"]) {
+    const { lastInsertRowid: tid } = insT.run(tpl, tpl, `Standard general requirements for a ${tpl.toLowerCase()}`);
+    COMMON.forEach((c, i) => insI.run(tid, c[0], c[1], c[2], c[3], c[4], c[5], c[6], i));
+  }
+}
 
 // Seed the standard CSI-style WBS tree once, on first run only. Never
 // re-runs once a category exists, so user edits/additions are never

@@ -451,8 +451,148 @@ export function calculateProject(projectId, { scenarioId = null, writeAudit = fa
   return result;
 }
 
+// ── General Requirements (GR) ───────────────────────────────────────────────
+//
+// The GR module reuses this engine for every number. A GR item's "base amount"
+// is derived from its estimating method and the sheet's project parameters;
+// percentage methods resolve against the project direct cost, the project
+// value, or the item's own category subtotal. Assembly/UPA item types reuse
+// calculateAssembly / calculateUPA so their cost logic is never duplicated.
+
+export const GR_CATEGORIES = [
+  "Mobilization / Demobilization", "Temporary Facilities", "Temporary Utilities",
+  "Site Administration", "Project Staff", "Safety Requirements",
+  "Quality Assurance / Quality Control", "Surveying", "Permits & Government Fees",
+  "Bonds & Insurance", "Temporary Access Roads", "Traffic Management",
+  "Environmental Protection", "Site Security", "Housekeeping",
+  "Testing & Commissioning", "Training", "As-Built Drawings", "O&M Manuals",
+  "Project Closeout", "Miscellaneous",
+];
+
+// Safe formula evaluator: only digits, operators, parens and known parameter
+// names are allowed. Anything else returns 0 rather than executing.
+function evalFormula(formula, params) {
+  if (!formula) return 0;
+  const allowed = /^[\d\s+\-*/().a-zA-Z_]+$/;
+  if (!allowed.test(formula)) return 0;
+  const names = Object.keys(params);
+  // Reject any identifier that isn't a known parameter.
+  const idents = formula.match(/[a-zA-Z_]+/g) || [];
+  if (idents.some((id) => !names.includes(id))) return 0;
+  try {
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(...names, `"use strict"; return (${formula});`);
+    const result = fn(...names.map((n) => params[n]));
+    return Number.isFinite(result) ? result : 0;
+  } catch { return 0; }
+}
+
+// Base amount for a single GR item (everything except %-based methods, which
+// need category/project context resolved by the sheet calculation).
+function grItemBaseAmount(item, ctx) {
+  const qty = item.quantity ?? 1;
+  const rate = item.rate || item.frozenCost || 0;
+  switch (item.method) {
+    case "lumpSum":
+    case "allowance":
+      return item.value ?? 0;
+    case "unitRate":
+      return qty * rate;
+    case "monthly":
+      return rate * (ctx.calendarMonths || 0) * qty;
+    case "weekly":
+      return rate * ((ctx.durationDays || 0) / 7) * qty;
+    case "daily":
+      return rate * (ctx.workingDays || 0) * qty;
+    case "rental":
+      return rate * (item.durationValue ?? ctx.calendarMonths ?? 0) * qty;
+    case "formula":
+      return evalFormula(item.formula, ctx);
+    case "assembly":
+      return item.assemblyId ? calculateAssemblyResult(item.assemblyId).total * qty : 0;
+    case "upa":
+      return item.upaId ? (calculateUPA(item.upaId)?.unitRate ?? 0) * qty : 0;
+    default:
+      // catalog-referencing manual types use quantity * frozen/rate
+      return qty * rate;
+  }
+}
+
+const PCT_METHODS = new Set(["percentageOfDirect", "percentageOfProject", "percentageOfCategory"]);
+
+export function calculateGRSheet(sheetId) {
+  const sheet = db.prepare("SELECT * FROM gr_sheets WHERE id = ?").get(sheetId);
+  if (!sheet) return null;
+  const items = db.prepare("SELECT * FROM gr_items WHERE sheetId = ? ORDER BY category, sortOrder, id").all(sheetId);
+
+  const ctx = {
+    durationDays: sheet.durationDays, workingDays: sheet.workingDays,
+    calendarMonths: sheet.calendarMonths, area: sheet.projectArea,
+    buildingCount: sheet.buildingCount, floorCount: sheet.floorCount,
+    projectValue: sheet.projectValue, personnelCount: sheet.personnelCount,
+    inflation: sheet.inflation, escalation: sheet.escalation,
+  };
+
+  // Project direct cost (reused from the engine) for %-of-direct/project.
+  const projectDirect = sheet.projectId ? calculateProject(sheet.projectId).waterfall.directCost : 0;
+  const projectBase = sheet.projectValue || projectDirect;
+
+  // Pass 1: base (non-percentage) amounts, accumulate category subtotals.
+  const categoryBase = {};
+  const computed = items.map((item) => {
+    const isPct = PCT_METHODS.has(item.method);
+    const base = isPct ? 0 : grItemBaseAmount(item, ctx);
+    if (!isPct && item.status !== "excluded") categoryBase[item.category] = (categoryBase[item.category] || 0) + base;
+    return { item, isPct, base };
+  });
+
+  // Pass 2: resolve percentage methods.
+  const lines = computed.map(({ item, isPct, base }) => {
+    let amount = base;
+    if (isPct) {
+      const pct = (item.pct || 0) / 100;
+      if (item.method === "percentageOfDirect") amount = pct * projectDirect;
+      else if (item.method === "percentageOfProject") amount = pct * projectBase;
+      else if (item.method === "percentageOfCategory") amount = pct * (categoryBase[item.category] || 0);
+    }
+    const withMarkup = amount * (1 + (item.markup || 0) / 100);
+    return {
+      id: item.id, category: item.category, itemType: item.itemType, method: item.method,
+      description: item.description, unit: item.unit, quantity: item.quantity,
+      rate: item.rate, pct: item.pct, status: item.status,
+      amount: item.status === "excluded" ? 0 : withMarkup,
+    };
+  });
+
+  // Category rollup.
+  const categoryMap = new Map();
+  for (const l of lines) {
+    if (!categoryMap.has(l.category)) categoryMap.set(l.category, { category: l.category, items: [], total: 0 });
+    const c = categoryMap.get(l.category);
+    c.items.push(l);
+    c.total += l.amount;
+  }
+  const categories = [...categoryMap.values()];
+  const subtotal = categories.reduce((s, c) => s + c.total, 0);
+
+  // Inflation + escalation applied to the subtotal (surfaced separately).
+  const inflationAmount = subtotal * ((sheet.inflation || 0) / 100);
+  const escalationAmount = subtotal * ((sheet.escalation || 0) / 100);
+  const grandTotal = subtotal + inflationAmount + escalationAmount;
+
+  return {
+    sheetId, parameters: ctx, projectDirectCost: projectDirect,
+    categories, lines, subtotal, inflationAmount, escalationAmount, grandTotal,
+    pctOfProjectValue: projectBase ? (grandTotal / projectBase) * 100 : null,
+  };
+}
+
 // Clear all caches (used by tests and after bulk imports).
 export function clearCaches() {
   moduleCache.clear();
   assemblyCache.clear();
+  upaCache.clear();
 }
+
+// Exposed for unit testing the GR method math without a DB.
+export const __grItemBaseAmountForTest = grItemBaseAmount;

@@ -12,6 +12,7 @@ import suppliersRouter from "./routes/suppliers.js";
 import procurementRouter from "./routes/procurement.js";
 import upaRouter from "./routes/upa.js";
 import reportsRouter from "./routes/reports.js";
+import generalRequirementsRouter from "./routes/generalRequirements.js";
 import {
   clientsRouter, tendersRouter, drawingsRouter, specificationsRouter,
   addendaRouter, rfisRouter, documentsRouter, miscRouter,
@@ -46,6 +47,7 @@ app.use("/api/suppliers", suppliersRouter);
 app.use("/api/procurement", procurementRouter);
 app.use("/api/upa", upaRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/api/general-requirements", generalRequirementsRouter);
 app.use("/api/clients", clientsRouter);
 app.use("/api/tenders", tendersRouter);
 app.use("/api/drawings", drawingsRouter);

@@ -5,6 +5,7 @@ import {
   buildBOQ, buildDetailedEstimate, buildResourceSummary, buildAssemblySummary,
   buildProjectCostSummary, buildWbsSummary, buildCostBreakdown, buildUpaReport,
   buildProcurementSummary, buildSupplierComparison, boqToRows,
+  buildGRReport, buildGRSummary, buildGRCategoryReport,
 } from "../services/reportService.js";
 
 const router = Router();
@@ -19,6 +20,8 @@ function parseOpts(req) {
   return {
     groupBy: src.groupBy,
     scenarioId: src.scenarioId ? Number(src.scenarioId) : null,
+    sheetId: src.sheetId ? Number(src.sheetId) : null,
+    grCategory: src.grCategory || null,
     useMarkup: src.useMarkup !== "false" && src.useMarkup !== false,
     include,
     filters: filters || {},
@@ -43,6 +46,16 @@ function generate(reportType, projectId, opts) {
     case "upa-report": return { kind: "upa", data: buildUpaReport() };
     case "procurement-summary": return { kind: "procurement", data: buildProcurementSummary() };
     case "supplier-comparison": return { kind: "supplier", data: buildSupplierComparison() };
+    case "gr-estimate": return { kind: "gr", data: buildGRReport(opts.sheetId) };
+    case "gr-boq": return { kind: "gr", data: buildGRReport(opts.sheetId) };
+    case "gr-summary": return { kind: "gr-summary", data: buildGRSummary(opts.sheetId) };
+    case "gr-staff": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Project Staff") };
+    case "gr-temp-facilities": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Temporary Facilities") };
+    case "gr-temp-utilities": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Temporary Utilities") };
+    case "gr-safety": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Safety Requirements") };
+    case "gr-qaqc": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Quality Assurance / Quality Control") };
+    case "gr-testing": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Testing & Commissioning") };
+    case "gr-closeout": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Project Closeout") };
     default: return null;
   }
 }
@@ -62,6 +75,16 @@ export const REPORT_TYPES = [
   { key: "supplier-comparison", label: "Supplier Comparison Report", needsProject: false },
   { key: "project-cost-summary", label: "Project Cost Summary", needsProject: true },
   { key: "wbs-summary", label: "WBS Summary", needsProject: true },
+  { key: "gr-estimate", label: "General Requirements Estimate", needsSheet: true },
+  { key: "gr-boq", label: "General Requirements BOQ", needsSheet: true },
+  { key: "gr-summary", label: "General Requirements Summary", needsSheet: true },
+  { key: "gr-staff", label: "Project Staff Cost Report", needsSheet: true },
+  { key: "gr-temp-facilities", label: "Temporary Facilities Report", needsSheet: true },
+  { key: "gr-temp-utilities", label: "Temporary Utilities Report", needsSheet: true },
+  { key: "gr-safety", label: "Safety Cost Report", needsSheet: true },
+  { key: "gr-qaqc", label: "QAQC Report", needsSheet: true },
+  { key: "gr-testing", label: "Testing & Commissioning Report", needsSheet: true },
+  { key: "gr-closeout", label: "Project Closeout Report", needsSheet: true },
 ];
 
 router.get("/types", (req, res) => res.json(REPORT_TYPES));
@@ -73,6 +96,7 @@ router.get("/generate/:reportType", (req, res) => {
   const meta = REPORT_TYPES.find((t) => t.key === reportType);
   if (!meta) return res.status(400).json({ error: "Unknown report type" });
   if (meta.needsProject && !projectId) return res.status(400).json({ error: "projectId is required for this report" });
+  if (meta.needsSheet && !req.query.sheetId) return res.status(400).json({ error: "sheetId is required for this report" });
 
   const result = generate(reportType, projectId, parseOpts(req));
   if (!result || !result.data) return res.status(404).json({ error: "No data (project not found?)" });
@@ -107,6 +131,17 @@ function reportToRows(kind, data) {
     ];
     return rows.map(([Item, Amount]) => ({ Item, Amount }));
   }
+  if (kind === "gr") {
+    const out = [];
+    for (const c of data.categories) {
+      out.push({ Category: c.category, Description: "", Unit: "", Amount: "" });
+      for (const it of c.items) out.push({ Category: "", Description: it.description, Unit: it.unit || "", Amount: it.amount });
+      out.push({ Category: "", Description: `Subtotal — ${c.category}`, Unit: "", Amount: c.total });
+    }
+    out.push({ Category: "", Description: "GRAND TOTAL", Unit: "", Amount: data.grandTotal });
+    return out;
+  }
+  if (kind === "gr-summary") return data.rows.map((r) => ({ Category: r.category, Total: r.total })).concat([{ Category: "GRAND TOTAL", Total: data.grandTotal }]);
   if (kind === "procurement") return data.rows.map((r) => ({ Code: r.code, Description: r.description, Unit: r.unit, "Current Price": r.unitPrice, Quotes: r.quotes, "Selected Supplier": r.selectedSupplier || "" }));
   if (kind === "supplier") return data.rows.map((r) => ({ Code: r.code, Description: r.name, Unit: r.unit, Lowest: r.lowest, Highest: r.highest, Average: r.average }));
   return [];

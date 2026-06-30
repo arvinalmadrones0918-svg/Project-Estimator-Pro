@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyIndirectCosts, __upaResourceAmountForTest } from "../src/services/costEngine.js";
+import { applyIndirectCosts, __upaResourceAmountForTest, __grItemBaseAmountForTest } from "../src/services/costEngine.js";
 
 // The indirect-cost waterfall is the financial heart of the engine. These
 // tests pin the order of operations and every item method/scope combination.
@@ -122,6 +122,43 @@ test("UPA equipment amount applies both waste and idle factor", () => {
 test("UPA idle factor only applies to equipment, not material", () => {
   const amount = __upaResourceAmountForTest({ resourceType: "material", quantity: 4, frozenCost: 100, idleFactor: 25 });
   assert.equal(amount, 400); // idle ignored for material
+});
+
+// ── GR estimating methods ───────────────────────────────────────────────────
+
+const grCtx = { calendarMonths: 10, workingDays: 220, durationDays: 300, area: 5000, projectValue: 1000000 };
+
+test("GR lump sum uses value", () => {
+  assert.equal(__grItemBaseAmountForTest({ method: "lumpSum", value: 5000 }, grCtx), 5000);
+});
+
+test("GR unit rate is quantity * rate", () => {
+  assert.equal(__grItemBaseAmountForTest({ method: "unitRate", quantity: 4, rate: 250 }, grCtx), 1000);
+});
+
+test("GR monthly multiplies rate by calendar months", () => {
+  assert.equal(__grItemBaseAmountForTest({ method: "monthly", rate: 1500, quantity: 1 }, grCtx), 15000);
+});
+
+test("GR daily multiplies rate by working days", () => {
+  assert.equal(__grItemBaseAmountForTest({ method: "daily", rate: 100, quantity: 2 }, grCtx), 44000);
+});
+
+test("GR rental uses durationValue override", () => {
+  assert.equal(__grItemBaseAmountForTest({ method: "rental", rate: 500, quantity: 1, durationValue: 6 }, grCtx), 3000);
+});
+
+test("GR formula evaluates with project parameters", () => {
+  assert.equal(__grItemBaseAmountForTest({ method: "formula", formula: "area * 2 + 100" }, grCtx), 10100);
+});
+
+test("GR formula rejects unknown identifiers", () => {
+  assert.equal(__grItemBaseAmountForTest({ method: "formula", formula: "process.exit(1)" }, grCtx), 0);
+});
+
+test("GR percentage methods defer (base 0 until sheet resolves context)", () => {
+  // grItemBaseAmount only handles non-pct methods; pct resolved at sheet level.
+  assert.equal(__grItemBaseAmountForTest({ method: "monthly", rate: 0 }, grCtx), 0);
 });
 
 test("multiple indirect lines accumulate and are itemised", () => {

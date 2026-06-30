@@ -217,3 +217,25 @@ api.tendering = {
   bidComparison: (projectId) => request(`/tendering/bid-comparison/${projectId}`),
   search: (q) => request(`/tendering/search${qs({ q })}`),
 };
+
+const GR = "/general-requirements";
+api.gr = {
+  categories: () => request(`${GR}/categories`),
+  staff: () => request(`${GR}/staff`),
+  addStaff: (data) => request(`${GR}/staff`, { method: "POST", body: JSON.stringify(data) }),
+  updateStaff: (id, data) => request(`${GR}/staff/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  removeStaff: (id) => request(`${GR}/staff/${id}`, { method: "DELETE" }),
+  templates: () => request(`${GR}/templates`),
+  template: (id) => request(`${GR}/templates/${id}`),
+  sheets: (params) => request(`${GR}/sheets${qs(params)}`),
+  sheet: (id) => request(`${GR}/sheets/${id}`),
+  calculate: (id) => request(`${GR}/sheets/${id}/calculate`),
+  createSheet: (data) => request(`${GR}/sheets`, { method: "POST", body: JSON.stringify(data) }),
+  updateSheet: (id, data) => request(`${GR}/sheets/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  removeSheet: (id) => request(`${GR}/sheets/${id}`, { method: "DELETE" }),
+  duplicateSheet: (id) => request(`${GR}/sheets/${id}/duplicate`, { method: "POST" }),
+  applyTemplate: (sheetId, templateId) => request(`${GR}/sheets/${sheetId}/apply-template/${templateId}`, { method: "POST" }),
+  addItem: (sheetId, data) => request(`${GR}/sheets/${sheetId}/items`, { method: "POST", body: JSON.stringify(data) }),
+  updateItem: (itemId, data) => request(`${GR}/items/${itemId}`, { method: "PUT", body: JSON.stringify(data) }),
+  removeItem: (itemId) => request(`${GR}/items/${itemId}`, { method: "DELETE" }),
+};

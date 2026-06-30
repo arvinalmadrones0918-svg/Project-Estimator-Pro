@@ -1,5 +1,5 @@
 import { db } from "../db.js";
-import { calculateProject, calculateUPA } from "./costEngine.js";
+import { calculateProject, calculateUPA, calculateGRSheet } from "./costEngine.js";
 
 // ════════════════════════════════════════════════════════════════════════════
 // REPORTING SERVICE
@@ -265,6 +265,33 @@ export function buildSupplierComparison() {
 
 export function buildDetailedEstimate(projectId, opts = {}) {
   return buildBOQ(projectId, { ...opts, groupBy: opts.groupBy ?? "wbs" });
+}
+
+// ── General Requirements reports (reuse the GR calculation in the engine) ───
+
+// Full GR estimate/BOQ: every line grouped by category with subtotals.
+export function buildGRReport(sheetId, { categoryFilter } = {}) {
+  const sheet = db.prepare("SELECT * FROM gr_sheets WHERE id = ?").get(sheetId);
+  if (!sheet) return null;
+  const calc = calculateGRSheet(sheetId);
+  let categories = calc.categories;
+  if (categoryFilter) categories = categories.filter((c) => c.category === categoryFilter);
+  return { sheet, categories, subtotal: calc.subtotal, grandTotal: calc.grandTotal,
+    inflationAmount: calc.inflationAmount, escalationAmount: calc.escalationAmount,
+    pctOfProjectValue: calc.pctOfProjectValue };
+}
+
+// GR summary: category totals only.
+export function buildGRSummary(sheetId) {
+  const r = buildGRReport(sheetId);
+  if (!r) return null;
+  return { sheet: r.sheet, rows: r.categories.map((c) => ({ category: c.category, total: c.total })),
+    subtotal: r.subtotal, inflationAmount: r.inflationAmount, escalationAmount: r.escalationAmount, grandTotal: r.grandTotal };
+}
+
+// Single-category GR report (Project Staff, Temp Facilities, Safety, etc.).
+export function buildGRCategoryReport(sheetId, category) {
+  return buildGRReport(sheetId, { categoryFilter: category });
 }
 
 // Flatten any BOQ-shaped report to tabular rows for xlsx/csv export.
