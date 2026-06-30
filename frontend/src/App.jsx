@@ -13,6 +13,7 @@ import TenderingPage from "./tendering/TenderingPage";
 import GeneralRequirementsPage from "./gr/GeneralRequirementsPage";
 import ExcelPage from "./excel/ExcelPage";
 import CostControlPage from "./costcontrol/CostControlPage";
+import ExecutiveDashboard from "./analytics/ExecutiveDashboard";
 import GlobalSearch from "./tendering/GlobalSearch";
 import AdminPage from "./auth/AdminPage";
 import MyWorkPage from "./auth/MyWorkPage";
@@ -93,6 +94,7 @@ const CATALOG_TABS = [
 ];
 
 const TABS = [
+  { key: "executive", label: "Executive" },
   { key: "mywork", label: "My Work" },
   { key: "dashboard", label: "Projects" },
   ...CATALOG_TABS,
@@ -110,7 +112,7 @@ const TABS = [
 ];
 
 export default function App() {
-  const [tab, setTab] = useState("mywork");
+  const [tab, setTab] = useState("executive");
   const [openProjectId, setOpenProjectId] = useState(null);
   const [showAllTabs, setShowAllTabs] = useState(false);
   const { theme, toggleTheme } = useTheme();
@@ -165,7 +167,9 @@ export default function App() {
         </nav>
       </header>
       <main className={isFullScreen ? "main-full" : ""}>
-        {tab === "mywork" ? (
+        {tab === "executive" ? (
+          <ExecutiveDashboard onOpenProject={handleOpenProject} />
+        ) : tab === "mywork" ? (
           <MyWorkPage onOpenProject={handleOpenProject} />
         ) : tab === "dashboard" ? (
           openProjectId ? (

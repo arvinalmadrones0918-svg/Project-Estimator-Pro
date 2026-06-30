@@ -267,6 +267,12 @@ api.enterprise = {
   approvalHistory: () => request("/enterprise/activity/approvals"),
 };
 
+api.analytics = {
+  all: (filters) => request(`/analytics/all${qs(filters)}`),
+  filters: () => request("/analytics/filters"),
+  executive: (f) => request(`/analytics/executive${qs(f)}`),
+};
+
 api.purchaseOrders = makeRegister("purchase-orders");
 api.subcontracts = makeRegister("subcontracts");
 api.variationOrders = makeRegister("variation-orders");
