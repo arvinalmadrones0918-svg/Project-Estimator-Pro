@@ -84,6 +84,18 @@ app.use("/api/rfis", rfisRouter);
 app.use("/api/documents", documentsRouter);
 app.use("/api/tendering", miscRouter);
 
+// Unknown API routes → clean JSON 404 (instead of an HTML page).
+app.use("/api", (req, res) => res.status(404).json({ error: `Not found: ${req.method} ${req.path}` }));
+
+// Centralized error handler → JSON, never leaking a stack trace to clients.
+// Malformed JSON bodies and any thrown route error land here.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || (err.type === "entity.parse.failed" ? 400 : 500);
+  if (status >= 500) console.error("Unhandled error:", err.message);
+  res.status(status).json({ error: status === 400 ? "Invalid request body" : (err.expose ? err.message : "Internal server error") });
+});
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`Estimator backend listening on port ${port}`);
