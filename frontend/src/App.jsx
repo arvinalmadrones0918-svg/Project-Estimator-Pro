@@ -8,6 +8,7 @@ import CatalogPage from "./catalog/CatalogPage";
 import SuppliersPage from "./procurement/SuppliersPage";
 import ProcurementPage from "./procurement/ProcurementPage";
 import UpaPage from "./upa/UpaPage";
+import ReportsPage from "./reports/ReportsPage";
 import { catalogApis } from "./catalog/catalogApi";
 import { useTheme } from "./hooks/useTheme";
 
@@ -85,6 +86,7 @@ const TABS = [
   { key: "dashboard", label: "Projects" },
   ...CATALOG_TABS,
   { key: "rate-analysis", label: "Rate Analysis", component: UpaPage },
+  { key: "reports", label: "Reports", component: ReportsPage },
   { key: "suppliers", label: "Suppliers", component: SuppliersPage },
   { key: "procurement", label: "Procurement", component: ProcurementPage },
   { key: "modules", label: "Work Modules", component: ModulesPage },

@@ -11,6 +11,7 @@ import estimateRouter from "./routes/estimate.js";
 import suppliersRouter from "./routes/suppliers.js";
 import procurementRouter from "./routes/procurement.js";
 import upaRouter from "./routes/upa.js";
+import reportsRouter from "./routes/reports.js";
 import { makeCatalogRouter } from "./routes/catalogRouter.js";
 
 const app = express();
@@ -40,6 +41,7 @@ app.use("/api/estimate", estimateRouter);
 app.use("/api/suppliers", suppliersRouter);
 app.use("/api/procurement", procurementRouter);
 app.use("/api/upa", upaRouter);
+app.use("/api/reports", reportsRouter);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {

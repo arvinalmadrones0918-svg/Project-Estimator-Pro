@@ -175,4 +175,13 @@ export const api = {
     version: (id, versionId) => request(`/upa/${id}/versions/${versionId}`),
     createVersion: (id, note) => request(`/upa/${id}/versions`, { method: "POST", body: JSON.stringify({ note }) }),
   },
+  reports: {
+    types: () => request("/reports/types"),
+    generate: (reportType, params) => request(`/reports/generate/${reportType}${qs(params)}`),
+    exportUrl: (reportType, params, format) => `/api/reports/export/${reportType}${qs({ ...params, format })}`,
+    templates: () => request("/reports/templates"),
+    saveTemplate: (data) => request("/reports/templates", { method: "POST", body: JSON.stringify(data) }),
+    removeTemplate: (id) => request(`/reports/templates/${id}`, { method: "DELETE" }),
+    history: (projectId) => request(`/reports/history${qs({ projectId })}`),
+  },
 };

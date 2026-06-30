@@ -703,6 +703,33 @@ db.exec(`
 // Assemblies may reference UPA records (itemType 'upa' carries childUpaId).
 ensureColumn("assembly_items", "childUpaId", "childUpaId INTEGER REFERENCES unit_price_analyses(id)");
 
+// Phase 8: BOQ & reporting engine — reusable templates + generation history.
+db.exec(`
+  -- A saved report configuration (type, grouping, filters, include/exclude,
+  -- page layout) that can be re-run. config is JSON.
+  CREATE TABLE IF NOT EXISTS report_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    reportType TEXT NOT NULL,
+    config TEXT NOT NULL,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Audit of generated reports: which report, for which project/scenario/
+  -- revision, by whom and when.
+  CREATE TABLE IF NOT EXISTS report_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    reportType TEXT NOT NULL,
+    scenarioId INTEGER,
+    revision INTEGER,
+    generatedBy TEXT,
+    config TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -758,6 +785,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_module_upa_workModuleId ON module_upa(workModuleId);
   CREATE INDEX IF NOT EXISTS idx_module_upa_upaId ON module_upa(upaId);
   CREATE INDEX IF NOT EXISTS idx_assembly_items_childUpaId ON assembly_items(childUpaId);
+  CREATE INDEX IF NOT EXISTS idx_report_history_projectId ON report_history(projectId);
+  CREATE INDEX IF NOT EXISTS idx_report_templates_type ON report_templates(reportType);
 `);
 
 // Seed the standard CSI-style WBS tree once, on first run only. Never
