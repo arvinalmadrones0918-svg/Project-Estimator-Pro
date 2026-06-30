@@ -1733,3 +1733,77 @@ th {
 
 /* Revisions */
 .revisions-table td:last-child, .revisions-table th:last-child { text-align: right; }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 6 – PROCUREMENT & SUPPLIERS
+   ═══════════════════════════════════════════════════════════════ */
+
+.procurement-page { padding: 1rem 0; }
+.proc-tabs { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--border); margin-bottom: 1.25rem; }
+.proc-tabs button {
+  padding: 0.55rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 0.9rem;
+}
+.proc-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* Stat cards */
+.proc-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem; margin-bottom: 1.5rem; }
+.proc-stat-card { background: var(--panel-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 1rem 1.1rem; }
+.proc-stat-card.warn { border-left-color: #e8893a; }
+.proc-stat-card.ok { border-left-color: #1faa59; }
+.proc-stat-card.danger { border-left-color: #e0455f; }
+.proc-stat-value { font-size: 1.8rem; font-weight: 700; }
+.proc-stat-label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* Comparison summary in quotation modal */
+.comparison-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+.comp-stat { background: var(--hover-bg); border-radius: 8px; padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 2px; }
+.comp-stat span { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+.comp-stat strong { font-size: 1.05rem; }
+.comp-stat small { font-size: 0.72rem; color: var(--muted); }
+
+.quote-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.quote-add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; padding: 0.9rem; background: var(--hover-bg); border-radius: 8px; margin-bottom: 1rem; }
+.quote-add-form label { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; }
+.quote-add-form .span-2 { grid-column: span 2; }
+.quote-add-form input, .quote-add-form select { padding: 0.4rem 0.5rem; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+
+.quote-table, .rfq-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.quote-table th, .rfq-table th { text-align: left; padding: 6px 8px; font-size: 0.72rem; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--border); }
+.quote-table td, .rfq-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.quote-selected { background: rgba(47, 111, 235, 0.08); }
+.quote-lowest { color: #1faa59; font-weight: 600; }
+.quote-expired { color: #e0455f; }
+
+/* Packages */
+.proc-packages-head { margin-bottom: 1rem; }
+.package-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.1rem; margin-bottom: 1rem; }
+.package-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+.package-head h3 { margin: 0; }
+.package-total { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+
+/* RFQ document */
+.rfq-controls { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; }
+.rfq-controls label { display: flex; gap: 0.4rem; align-items: center; }
+.rfq-document { background: #fff; color: #111; border: 1px solid var(--border); border-radius: 8px; padding: 2rem; }
+.rfq-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+.rfq-header h1 { margin: 0; font-size: 1.5rem; }
+.rfq-meta { text-align: right; font-size: 0.85rem; }
+.rfq-supplier { margin-bottom: 1rem; font-size: 0.9rem; }
+.rfq-document .rfq-table th { color: #555; border-bottom-color: #111; }
+.rfq-document .rfq-table td { border-bottom-color: #ddd; }
+.rfq-blank { border-bottom: 1px solid #999 !important; min-width: 80px; }
+.rfq-footer { margin-top: 1.5rem; font-size: 0.85rem; font-style: italic; color: #555; }
+
+.checkbox-label { flex-direction: row !important; align-items: center; gap: 0.4rem; }
+
+@media print {
+  .app-header, .proc-tabs, .rfq-controls, .catalog-toolbar { display: none !important; }
+  .rfq-document { border: none; padding: 0; }
+}

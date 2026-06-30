@@ -8,6 +8,8 @@ import wbsRouter from "./routes/wbs.js";
 import modulesRouter from "./routes/modules.js";
 import assembliesRouter from "./routes/assemblies.js";
 import estimateRouter from "./routes/estimate.js";
+import suppliersRouter from "./routes/suppliers.js";
+import procurementRouter from "./routes/procurement.js";
 import { makeCatalogRouter } from "./routes/catalogRouter.js";
 
 const app = express();
@@ -34,6 +36,8 @@ app.use("/api/wbs", wbsRouter);
 app.use("/api/modules", modulesRouter);
 app.use("/api/assemblies", assembliesRouter);
 app.use("/api/estimate", estimateRouter);
+app.use("/api/suppliers", suppliersRouter);
+app.use("/api/procurement", procurementRouter);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {

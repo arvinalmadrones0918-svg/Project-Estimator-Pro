@@ -5,6 +5,8 @@ import ModulesPage from "./ModulesPage";
 import Dashboard from "./dashboard/Dashboard";
 import ProjectWorkspace from "./workspace/ProjectWorkspace";
 import CatalogPage from "./catalog/CatalogPage";
+import SuppliersPage from "./procurement/SuppliersPage";
+import ProcurementPage from "./procurement/ProcurementPage";
 import { catalogApis } from "./catalog/catalogApi";
 import { useTheme } from "./hooks/useTheme";
 
@@ -81,6 +83,8 @@ const CATALOG_TABS = [
 const TABS = [
   { key: "dashboard", label: "Projects" },
   ...CATALOG_TABS,
+  { key: "suppliers", label: "Suppliers", component: SuppliersPage },
+  { key: "procurement", label: "Procurement", component: ProcurementPage },
   { key: "modules", label: "Work Modules", component: ModulesPage },
   { key: "materials-legacy", label: "Mat DB (legacy)", component: MaterialsPage },
   { key: "labor-legacy", label: "Labor DB (legacy)", component: LaborPage },

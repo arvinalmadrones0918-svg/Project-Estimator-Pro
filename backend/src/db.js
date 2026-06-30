@@ -535,6 +535,76 @@ db.exec(`
   );
 `);
 
+// Phase 6: Procurement & supplier quotation management.
+db.exec(`
+  -- Master supplier directory. Soft-deleted (deletedAt) and de-activatable
+  -- (status) like the other catalogs so historical quotations keep their
+  -- supplier reference.
+  CREATE TABLE IF NOT EXISTS suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    companyName TEXT NOT NULL,
+    address TEXT,
+    contactPerson TEXT,
+    email TEXT,
+    telephone TEXT,
+    mobile TEXT,
+    website TEXT,
+    tin TEXT,
+    vatRegistered INTEGER NOT NULL DEFAULT 0,
+    tradeCategory TEXT,
+    rating REAL NOT NULL DEFAULT 0,
+    remarks TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A supplier's quotation for a material. A material may have many. Exactly
+  -- one can be flagged isSelected (the supplier the estimator picked); the
+  -- selection also stamps the material's preferredQuotationId for fast lookup.
+  CREATE TABLE IF NOT EXISTS material_quotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    materialId INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+    supplierId INTEGER NOT NULL REFERENCES suppliers(id),
+    quotedUnitCost REAL NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    validityDate TEXT,
+    leadTime TEXT,
+    deliveryTerms TEXT,
+    paymentTerms TEXT,
+    quotationReference TEXT,
+    remarks TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    isSelected INTEGER NOT NULL DEFAULT 0,
+    selectionMethod TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Append-only audit of supplier/quotation selection changes for a material:
+  -- who changed it, the previous and current supplier+quotation, and when.
+  CREATE TABLE IF NOT EXISTS quotation_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    materialId INTEGER NOT NULL REFERENCES materials(id),
+    action TEXT NOT NULL,
+    previousSupplierId INTEGER,
+    previousQuotationId INTEGER,
+    previousUnitCost REAL,
+    newSupplierId INTEGER,
+    newQuotationId INTEGER,
+    newUnitCost REAL,
+    selectionMethod TEXT,
+    changedBy TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+// Per-material selection pointer (which quotation is the chosen one).
+ensureColumn("materials", "selectedQuotationId", "selectedQuotationId INTEGER REFERENCES material_quotations(id)");
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -574,6 +644,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_revisions_projectId ON estimate_revisions(projectId);
   CREATE INDEX IF NOT EXISTS idx_revisions_scenarioId ON estimate_revisions(scenarioId);
   CREATE INDEX IF NOT EXISTS idx_audit_projectId ON calculation_audit(projectId);
+  CREATE INDEX IF NOT EXISTS idx_suppliers_status ON suppliers(status);
+  CREATE INDEX IF NOT EXISTS idx_suppliers_deletedAt ON suppliers(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_suppliers_tradeCategory ON suppliers(tradeCategory);
+  CREATE INDEX IF NOT EXISTS idx_quotations_materialId ON material_quotations(materialId);
+  CREATE INDEX IF NOT EXISTS idx_quotations_supplierId ON material_quotations(supplierId);
+  CREATE INDEX IF NOT EXISTS idx_quotations_isSelected ON material_quotations(isSelected);
+  CREATE INDEX IF NOT EXISTS idx_quotations_deletedAt ON material_quotations(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_quotation_audit_materialId ON quotation_audit(materialId);
 `);
 
 // Seed the standard CSI-style WBS tree once, on first run only. Never
