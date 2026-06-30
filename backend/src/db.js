@@ -730,6 +730,147 @@ db.exec(`
   );
 `);
 
+// Phase 9: Tendering, bid management & document control.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company TEXT NOT NULL,
+    owner TEXT,
+    address TEXT,
+    contactPerson TEXT,
+    telephone TEXT,
+    email TEXT,
+    tin TEXT,
+    taxType TEXT,
+    paymentTerms TEXT,
+    preferredContractor TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS tenders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenderNo TEXT,
+    projectId INTEGER REFERENCES projects(id),
+    clientId INTEGER REFERENCES clients(id),
+    client TEXT,
+    bidTitle TEXT NOT NULL,
+    bidDate TEXT,
+    submissionDate TEXT,
+    openingDate TEXT,
+    engineer TEXT,
+    estimator TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    currency TEXT NOT NULL DEFAULT 'USD',
+    remarks TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Polymorphic document attachment. entityType/entityId point at a project,
+  -- tender, estimate, assembly, material, supplier or UPA. Each document keeps
+  -- a version history in document_versions.
+  CREATE TABLE IF NOT EXISTS documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entityType TEXT NOT NULL,
+    entityId INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    fileType TEXT,
+    currentVersion INTEGER NOT NULL DEFAULT 1,
+    description TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS document_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    documentId INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    fileName TEXT,
+    fileType TEXT,
+    fileSize INTEGER,
+    url TEXT,
+    note TEXT,
+    uploadedBy TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS drawings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id),
+    drawingNumber TEXT NOT NULL,
+    revision TEXT,
+    discipline TEXT,
+    title TEXT,
+    issueDate TEXT,
+    currentRevision TEXT,
+    supersededRevisions TEXT,
+    status TEXT NOT NULL DEFAULT 'current',
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS specifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id),
+    division TEXT,
+    section TEXT,
+    description TEXT NOT NULL,
+    revision TEXT,
+    specDate TEXT,
+    linkedBoqItems TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS addenda (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id),
+    addendumNumber TEXT NOT NULL,
+    addendumDate TEXT,
+    affectedItems TEXT,
+    costImpact REAL NOT NULL DEFAULT 0,
+    description TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS rfis (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id),
+    requestNumber TEXT NOT NULL,
+    question TEXT,
+    answer TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    dateSent TEXT,
+    dateClosed TEXT,
+    linkedBoqItems TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Global change log: who changed what, old/new value and the reason.
+  CREATE TABLE IF NOT EXISTS change_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entityType TEXT NOT NULL,
+    entityId INTEGER,
+    field TEXT,
+    previousValue TEXT,
+    newValue TEXT,
+    reason TEXT,
+    changedBy TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -787,6 +928,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_assembly_items_childUpaId ON assembly_items(childUpaId);
   CREATE INDEX IF NOT EXISTS idx_report_history_projectId ON report_history(projectId);
   CREATE INDEX IF NOT EXISTS idx_report_templates_type ON report_templates(reportType);
+  CREATE INDEX IF NOT EXISTS idx_clients_deletedAt ON clients(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_tenders_projectId ON tenders(projectId);
+  CREATE INDEX IF NOT EXISTS idx_tenders_deletedAt ON tenders(deletedAt);
+  CREATE INDEX IF NOT EXISTS idx_documents_entity ON documents(entityType, entityId);
+  CREATE INDEX IF NOT EXISTS idx_document_versions_documentId ON document_versions(documentId);
+  CREATE INDEX IF NOT EXISTS idx_drawings_projectId ON drawings(projectId);
+  CREATE INDEX IF NOT EXISTS idx_specifications_projectId ON specifications(projectId);
+  CREATE INDEX IF NOT EXISTS idx_addenda_projectId ON addenda(projectId);
+  CREATE INDEX IF NOT EXISTS idx_rfis_projectId ON rfis(projectId);
+  CREATE INDEX IF NOT EXISTS idx_change_log_entity ON change_log(entityType, entityId);
 `);
 
 // Seed the standard CSI-style WBS tree once, on first run only. Never

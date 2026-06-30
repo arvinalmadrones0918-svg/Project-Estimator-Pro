@@ -9,6 +9,8 @@ import SuppliersPage from "./procurement/SuppliersPage";
 import ProcurementPage from "./procurement/ProcurementPage";
 import UpaPage from "./upa/UpaPage";
 import ReportsPage from "./reports/ReportsPage";
+import TenderingPage from "./tendering/TenderingPage";
+import GlobalSearch from "./tendering/GlobalSearch";
 import { catalogApis } from "./catalog/catalogApi";
 import { useTheme } from "./hooks/useTheme";
 
@@ -89,6 +91,7 @@ const TABS = [
   { key: "reports", label: "Reports", component: ReportsPage },
   { key: "suppliers", label: "Suppliers", component: SuppliersPage },
   { key: "procurement", label: "Procurement", component: ProcurementPage },
+  { key: "tendering", label: "Tendering", component: TenderingPage },
   { key: "modules", label: "Work Modules", component: ModulesPage },
   { key: "materials-legacy", label: "Mat DB (legacy)", component: MaterialsPage },
   { key: "labor-legacy", label: "Labor DB (legacy)", component: LaborPage },
@@ -118,6 +121,7 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>Project Estimator Pro</h1>
+        <GlobalSearch />
         <nav>
           {visibleTabs.map((t) => (
             <button key={t.key} className={tab === t.key ? "active" : ""} onClick={() => handleTabChange(t.key)}>

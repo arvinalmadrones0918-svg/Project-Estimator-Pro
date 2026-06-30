@@ -1917,3 +1917,38 @@ th {
   .report-paper { box-shadow: none; margin: 0; width: auto; padding: 0; }
   .report-footer { position: fixed; bottom: 0; width: 100%; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 9 – TENDERING & DOCUMENT CONTROL
+   ═══════════════════════════════════════════════════════════════ */
+
+.register-toolbar { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; }
+.register-toolbar .catalog-search { flex: 1; max-width: 360px; }
+
+.documents-filter { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.documents-filter label { display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem; }
+.documents-filter select, .documents-filter input { padding: 0.4rem 0.5rem; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+
+.bid-project-select { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+.bid-project-select select { padding: 0.4rem 0.5rem; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+.bid-table th, .bid-table td { text-align: left; }
+.bid-table .num { text-align: right; }
+.bid-col-type { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; font-weight: 400; }
+.bid-final-row td { font-weight: 700; border-top: 2px solid var(--accent); }
+.bid-delta { display: block; font-size: 0.72rem; }
+.bid-delta.up { color: #e0455f; }
+.bid-delta.down { color: #1faa59; }
+
+.change-log td.muted { color: var(--muted); }
+
+/* Global search in header */
+.global-search { position: relative; margin: 0 1rem; flex: 0 1 320px; }
+.global-search-input { width: 100%; padding: 0.4rem 0.7rem; border: 1px solid var(--input-border); border-radius: 20px; background: var(--input-bg); color: var(--text); font-size: 0.85rem; }
+.global-search-results { position: absolute; top: 110%; left: 0; right: 0; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); max-height: 60vh; overflow-y: auto; z-index: 100; padding: 0.4rem; }
+.global-search-empty { padding: 0.6rem; color: var(--muted); font-size: 0.85rem; }
+.global-search-group { margin-bottom: 0.3rem; }
+.global-search-group-label { font-size: 0.68rem; text-transform: uppercase; color: var(--muted); padding: 0.25rem 0.5rem; letter-spacing: 0.04em; }
+.global-search-item { padding: 0.35rem 0.6rem; border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
+.global-search-item:hover { background: var(--hover-bg); }
+
+textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text); resize: vertical; }

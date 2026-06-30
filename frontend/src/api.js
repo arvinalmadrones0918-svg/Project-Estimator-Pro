@@ -185,3 +185,35 @@ export const api = {
     history: (projectId) => request(`/reports/history${qs({ projectId })}`),
   },
 };
+
+// Generic CRUD client for a Phase 9 register table.
+function makeRegister(path) {
+  return {
+    list: (params) => request(`/${path}${qs(params)}`),
+    get: (id) => request(`/${path}/${id}`),
+    create: (data) => request(`/${path}`, { method: "POST", body: JSON.stringify(data) }),
+    update: (id, data) => request(`/${path}/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    remove: (id) => request(`/${path}/${id}`, { method: "DELETE" }),
+  };
+}
+
+api.clients = makeRegister("clients");
+api.tenders = makeRegister("tenders");
+api.drawings = makeRegister("drawings");
+api.specifications = makeRegister("specifications");
+api.addenda = makeRegister("addenda");
+api.rfis = makeRegister("rfis");
+
+api.documents = {
+  list: (params) => request(`/documents${qs(params)}`),
+  create: (data) => request("/documents", { method: "POST", body: JSON.stringify(data) }),
+  addVersion: (id, data) => request(`/documents/${id}/versions`, { method: "POST", body: JSON.stringify(data) }),
+  remove: (id) => request(`/documents/${id}`, { method: "DELETE" }),
+  acceptedTypes: () => request("/documents/accepted-types"),
+};
+
+api.tendering = {
+  changeLog: (params) => request(`/tendering/change-log${qs(params)}`),
+  bidComparison: (projectId) => request(`/tendering/bid-comparison/${projectId}`),
+  search: (q) => request(`/tendering/search${qs({ q })}`),
+};

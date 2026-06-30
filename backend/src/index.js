@@ -12,6 +12,10 @@ import suppliersRouter from "./routes/suppliers.js";
 import procurementRouter from "./routes/procurement.js";
 import upaRouter from "./routes/upa.js";
 import reportsRouter from "./routes/reports.js";
+import {
+  clientsRouter, tendersRouter, drawingsRouter, specificationsRouter,
+  addendaRouter, rfisRouter, documentsRouter, miscRouter,
+} from "./routes/tendering.js";
 import { makeCatalogRouter } from "./routes/catalogRouter.js";
 
 const app = express();
@@ -42,6 +46,14 @@ app.use("/api/suppliers", suppliersRouter);
 app.use("/api/procurement", procurementRouter);
 app.use("/api/upa", upaRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/api/clients", clientsRouter);
+app.use("/api/tenders", tendersRouter);
+app.use("/api/drawings", drawingsRouter);
+app.use("/api/specifications", specificationsRouter);
+app.use("/api/addenda", addendaRouter);
+app.use("/api/rfis", rfisRouter);
+app.use("/api/documents", documentsRouter);
+app.use("/api/tendering", miscRouter);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
