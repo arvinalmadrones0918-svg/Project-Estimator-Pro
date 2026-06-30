@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -965,6 +966,108 @@ db.exec(`
   );
 `);
 
+// Phase 12: Multi-user, security & approval workflow (additive layer).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS roles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    permissions TEXT NOT NULL DEFAULT '{}',
+    isBuiltIn INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    rememberMe INTEGER NOT NULL DEFAULT 0,
+    expiresAt TEXT NOT NULL,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS password_resets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    expiresAt TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Multi-level approval records for a project's estimate.
+  CREATE TABLE IF NOT EXISTS approvals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    level INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'pending',
+    approverUserId INTEGER REFERENCES users(id),
+    approverName TEXT,
+    comment TEXT,
+    actedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Audit trail of user actions (login/logout/create/edit/delete/approve/...).
+  CREATE TABLE IF NOT EXISTS activity_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER REFERENCES users(id),
+    userName TEXT,
+    action TEXT NOT NULL,
+    entityType TEXT,
+    entityId INTEGER,
+    detail TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- One active editor per project.
+  CREATE TABLE IF NOT EXISTS project_locks (
+    projectId INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    userId INTEGER NOT NULL REFERENCES users(id),
+    userName TEXT,
+    lockedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    message TEXT NOT NULL,
+    link TEXT,
+    isRead INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    UNIQUE (userId, projectId)
+  );
+`);
+
+// Extend the existing users table (kept backward-compatible: name/role stay).
+ensureColumn("users", "employeeId", "employeeId TEXT");
+ensureColumn("users", "username", "username TEXT");
+ensureColumn("users", "passwordHash", "passwordHash TEXT");
+ensureColumn("users", "passwordSalt", "passwordSalt TEXT");
+ensureColumn("users", "firstName", "firstName TEXT");
+ensureColumn("users", "lastName", "lastName TEXT");
+ensureColumn("users", "position", "position TEXT");
+ensureColumn("users", "department", "department TEXT");
+ensureColumn("users", "office", "office TEXT");
+ensureColumn("users", "mobile", "mobile TEXT");
+ensureColumn("users", "status", "status TEXT NOT NULL DEFAULT 'active'");
+ensureColumn("users", "photo", "photo TEXT");
+ensureColumn("users", "signature", "signature TEXT");
+ensureColumn("users", "failedLogins", "failedLogins INTEGER NOT NULL DEFAULT 0");
+ensureColumn("users", "lockedUntil", "lockedUntil TEXT");
+ensureColumn("users", "lastLoginAt", "lastLoginAt TEXT");
+ensureColumn("users", "roleId", "roleId INTEGER REFERENCES roles(id)");
+
+// Estimate workflow status, independent of the active/archived status column.
+ensureColumn("projects", "workflowStatus", "workflowStatus TEXT NOT NULL DEFAULT 'draft'");
+ensureColumn("projects", "approvalLevel", "approvalLevel INTEGER NOT NULL DEFAULT 0");
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -1037,7 +1140,52 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_gr_items_sheetId ON gr_items(sheetId);
   CREATE INDEX IF NOT EXISTS idx_gr_items_category ON gr_items(category);
   CREATE INDEX IF NOT EXISTS idx_gr_template_items_templateId ON gr_template_items(templateId);
+  CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+  CREATE INDEX IF NOT EXISTS idx_sessions_userId ON sessions(userId);
+  CREATE INDEX IF NOT EXISTS idx_approvals_projectId ON approvals(projectId);
+  CREATE INDEX IF NOT EXISTS idx_activity_log_userId ON activity_log(userId);
+  CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
+  CREATE INDEX IF NOT EXISTS idx_notifications_userId ON notifications(userId);
+  CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 `);
+
+// Seed built-in roles and a default administrator once.
+{
+  const ALL_MODULES = ["Projects", "Catalogs", "UPA", "Assemblies", "GeneralRequirements", "Procurement", "Tender", "Reports", "Administration", "Import", "Export"];
+  const ALL_ACTIONS = ["view", "edit", "delete", "approve"];
+  const full = {};
+  ALL_MODULES.forEach((m) => { full[m] = [...ALL_ACTIONS]; });
+  const viewOnly = {};
+  ALL_MODULES.forEach((m) => { viewOnly[m] = ["view"]; });
+  const estimator = {};
+  ALL_MODULES.forEach((m) => { estimator[m] = m === "Administration" ? [] : ["view", "edit"]; });
+  const approver = { ...estimator, Reports: ["view"], Tender: ["view", "edit", "approve"], Projects: ["view", "edit", "approve"] };
+
+  const ROLES = [
+    ["Administrator", full], ["Senior Estimator", { ...estimator, Export: ["view", "edit"], Import: ["view", "edit"] }],
+    ["Estimator", estimator], ["Project Engineer", estimator], ["Project Manager", approver],
+    ["Reviewer", { ...viewOnly, Projects: ["view", "edit"] }], ["Approver", approver],
+    ["Procurement Officer", { ...viewOnly, Procurement: ["view", "edit"] }], ["Viewer", viewOnly],
+  ];
+  const existing = db.prepare("SELECT COUNT(*) AS c FROM roles").get().c;
+  if (existing === 0) {
+    const ins = db.prepare("INSERT INTO roles (name, permissions, isBuiltIn) VALUES (?, ?, 1)");
+    for (const [name, perms] of ROLES) ins.run(name, JSON.stringify(perms));
+  }
+
+  // Seed the admin user with a scrypt-hashed password (admin / admin123).
+  const adminRoleId = db.prepare("SELECT id FROM roles WHERE name = 'Administrator'").get()?.id ?? null;
+  const haveAdmin = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
+  if (!haveAdmin) {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto.scryptSync("admin123", salt, 64).toString("hex");
+    // The users table requires email + name (NOT NULL); fill them in.
+    db.prepare(
+      `INSERT INTO users (email, name, role, roleId, username, passwordHash, passwordSalt, firstName, lastName, position, status)
+       VALUES ('admin@estimator.local', 'Administrator', 'Administrator', ?, 'admin', ?, ?, 'System', 'Administrator', 'Administrator', 'active')`
+    ).run(adminRoleId, hash, salt);
+  }
+}
 
 // Seed the project-staff library and a couple of built-in GR templates once.
 const grStaffCount = db.prepare("SELECT COUNT(*) AS c FROM gr_staff_library").get().c;

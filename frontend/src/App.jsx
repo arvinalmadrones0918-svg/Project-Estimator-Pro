@@ -13,6 +13,11 @@ import TenderingPage from "./tendering/TenderingPage";
 import GeneralRequirementsPage from "./gr/GeneralRequirementsPage";
 import ExcelPage from "./excel/ExcelPage";
 import GlobalSearch from "./tendering/GlobalSearch";
+import AdminPage from "./auth/AdminPage";
+import MyWorkPage from "./auth/MyWorkPage";
+import LoginPage from "./auth/LoginPage";
+import UserMenu from "./auth/UserMenu";
+import { useAuth } from "./auth/AuthContext";
 import { catalogApis } from "./catalog/catalogApi";
 import { useTheme } from "./hooks/useTheme";
 
@@ -87,6 +92,7 @@ const CATALOG_TABS = [
 ];
 
 const TABS = [
+  { key: "mywork", label: "My Work" },
   { key: "dashboard", label: "Projects" },
   ...CATALOG_TABS,
   { key: "rate-analysis", label: "Rate Analysis", component: UpaPage },
@@ -102,21 +108,29 @@ const TABS = [
 ];
 
 export default function App() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("mywork");
   const [openProjectId, setOpenProjectId] = useState(null);
   const [showAllTabs, setShowAllTabs] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { user, loading, can, isAdmin } = useAuth();
 
-  function handleOpenProject(id) { setOpenProjectId(id); }
+  function handleOpenProject(id) { setOpenProjectId(id); setTab("dashboard"); }
   function handleBackToDashboard() { setOpenProjectId(null); setTab("dashboard"); }
   function handleTabChange(key) { setOpenProjectId(null); setTab(key); }
 
-  // Primary tabs always visible; legacy tabs hidden behind a toggle
-  const primaryTabs = TABS.filter((t) => !t.key.includes("legacy"));
-  const legacyTabs = TABS.filter((t) => t.key.includes("legacy"));
-  const visibleTabs = showAllTabs ? TABS : primaryTabs;
+  if (loading) return <div className="app-loading">Loading…</div>;
+  if (!user) return <LoginPage />;
 
-  const activeTab = TABS.find((t) => t.key === tab);
+  // Admin tab only for users with Administration access.
+  const adminTabs = isAdmin ? [{ key: "admin", label: "Administration", component: AdminPage }] : [];
+  const allTabs = [...TABS, ...adminTabs];
+
+  // Primary tabs always visible; legacy tabs hidden behind a toggle
+  const primaryTabs = allTabs.filter((t) => !t.key.includes("legacy"));
+  const legacyTabs = allTabs.filter((t) => t.key.includes("legacy"));
+  const visibleTabs = showAllTabs ? allTabs : primaryTabs;
+
+  const activeTab = allTabs.find((t) => t.key === tab);
   const ActiveComponent = activeTab?.component;
 
   const isFullScreen = tab === "dashboard" && openProjectId;
@@ -145,10 +159,13 @@ export default function App() {
           <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark/light theme">
             {theme === "light" ? "🌙" : "☀️"}
           </button>
+          <UserMenu />
         </nav>
       </header>
       <main className={isFullScreen ? "main-full" : ""}>
-        {tab === "dashboard" ? (
+        {tab === "mywork" ? (
+          <MyWorkPage onOpenProject={handleOpenProject} />
+        ) : tab === "dashboard" ? (
           openProjectId ? (
             <ProjectWorkspace projectId={openProjectId} onBack={handleBackToDashboard} />
           ) : (

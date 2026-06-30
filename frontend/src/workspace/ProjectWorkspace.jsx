@@ -7,6 +7,7 @@ import NodeEditor from "./NodeEditor";
 import ProjectInfoPanel from "./ProjectInfoPanel";
 import CostEnginePanel from "./CostEnginePanel";
 import BottomSummaryBar from "./BottomSummaryBar";
+import WorkflowBar from "../auth/WorkflowBar";
 
 const LEFT_NAV = [
   { key: "wbs", label: "Work Breakdown Structure" },
@@ -131,6 +132,11 @@ export default function ProjectWorkspace({ projectId, onBack }) {
           ← Back to Dashboard
         </button>
         <h2>{project.name}</h2>
+        <WorkflowBar
+          projectId={projectId}
+          workflowStatus={project.workflowStatus}
+          onChanged={(ws) => setProject((p) => ({ ...p, workflowStatus: ws }))}
+        />
       </div>
 
       <div className="workspace-body">

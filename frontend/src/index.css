@@ -2024,3 +2024,74 @@ textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(-
 .export-card-actions { display: flex; gap: 0.75rem; }
 .export-card.multi { border-color: var(--accent); background: rgba(47,111,235,0.06); text-decoration: none; color: var(--text); }
 .export-card.multi span { font-size: 0.78rem; color: var(--muted); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 12 – MULTI-USER, SECURITY & WORKFLOW
+   ═══════════════════════════════════════════════════════════════ */
+
+.app-loading { display: flex; align-items: center; justify-content: center; height: 100vh; color: var(--muted); }
+
+/* Login */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1a3a6b, #2f6feb); }
+.login-card { background: var(--panel-bg); border-radius: 14px; padding: 2.25rem; width: 380px; box-shadow: 0 12px 40px rgba(0,0,0,0.25); text-align: center; }
+.login-logo { width: 56px; height: 56px; border-radius: 12px; background: #1a3a6b; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.4rem; margin: 0 auto 0.75rem; }
+.login-card h1 { margin: 0; font-size: 1.3rem; }
+.login-sub { color: var(--muted); font-size: 0.85rem; margin: 0.25rem 0 1.25rem; }
+.login-form { display: flex; flex-direction: column; gap: 0.75rem; text-align: left; }
+.login-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }
+.login-form input { padding: 0.5rem 0.6rem; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--text); }
+.login-remember { flex-direction: row !important; align-items: center; gap: 0.4rem; }
+.login-btn { width: 100%; padding: 0.6rem; }
+.login-hint { margin-top: 1rem; font-size: 0.75rem; color: var(--muted); }
+.login-info { background: rgba(31,170,89,0.12); color: var(--success); padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.8rem; margin-bottom: 0.75rem; word-break: break-all; }
+
+/* User menu + notifications */
+.user-menu { display: flex; align-items: center; gap: 0.5rem; position: relative; }
+.user-chip { display: flex; align-items: center; gap: 0.4rem; background: transparent; border: 1px solid var(--border); border-radius: 20px; padding: 0.25rem 0.6rem 0.25rem 0.25rem; cursor: pointer; color: var(--text); }
+.user-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; }
+.user-name { font-size: 0.82rem; }
+.user-role { font-size: 0.68rem; color: var(--muted); }
+.user-dropdown { position: absolute; right: 0; top: 120%; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); min-width: 200px; z-index: 200; overflow: hidden; }
+.user-dropdown-head { padding: 0.75rem; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+.user-dropdown-head span { font-size: 0.75rem; color: var(--muted); }
+.user-dropdown-item { display: block; width: 100%; text-align: left; padding: 0.55rem 0.75rem; border: none; background: transparent; cursor: pointer; color: var(--text); font-size: 0.85rem; }
+.user-dropdown-item:hover { background: var(--hover-bg); }
+.user-dropdown-item.danger { color: var(--danger); }
+
+.notif-bell { position: relative; background: transparent; border: none; cursor: pointer; font-size: 1.1rem; }
+.notif-badge { position: absolute; top: -4px; right: -4px; background: var(--danger); color: #fff; border-radius: 10px; font-size: 0.6rem; padding: 0 4px; min-width: 14px; }
+.notif-dropdown { position: absolute; right: 0; top: 120%; width: 300px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); z-index: 200; max-height: 60vh; overflow-y: auto; }
+.notif-head { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); }
+.notif-empty { padding: 0.75rem; color: var(--muted); font-size: 0.85rem; }
+.notif-item { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; }
+.notif-item.unread { background: rgba(47,111,235,0.06); }
+.notif-msg { font-size: 0.83rem; }
+.notif-time { font-size: 0.7rem; color: var(--muted); }
+
+/* Workflow bar */
+.workflow-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-left: auto; }
+.workflow-status { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.74rem; font-weight: 600; text-transform: uppercase; background: var(--hover-bg); }
+.ws-draft { color: var(--muted); }
+.ws-forReview { background: rgba(232,137,58,0.15); color: #e8893a; }
+.ws-returned { background: rgba(224,69,95,0.15); color: var(--danger); }
+.ws-approved { background: rgba(31,170,89,0.15); color: var(--success); }
+.ws-issued { background: rgba(47,111,235,0.15); color: var(--accent); }
+.ws-archived { color: var(--muted); }
+.workflow-lock { font-size: 0.76rem; color: var(--muted); }
+.workflow-lock.ok { color: var(--success); }
+.workflow-error { color: var(--danger); font-size: 0.76rem; }
+.workflow-actions { display: flex; gap: 0.4rem; }
+.workflow-actions button { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
+
+/* Admin + permissions */
+.perm-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+.perm-table th, .perm-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: center; }
+.perm-table th:first-child, .perm-table td:first-child { text-align: left; }
+
+/* My Work dashboard */
+.mywork-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.mywork-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.1rem; }
+.mywork-card h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.mywork-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.mywork-list li { font-size: 0.85rem; display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.mywork-action { font-weight: 600; color: var(--accent); }

@@ -1,10 +1,21 @@
 const BASE = "/api";
 
+// Auth token storage + an optional handler invoked on 401 (session expiry).
+let authToken = localStorage.getItem("pe_token") || null;
+let onUnauthorized = null;
+export function setAuthToken(token) {
+  authToken = token;
+  if (token) localStorage.setItem("pe_token", token);
+  else localStorage.removeItem("pe_token");
+}
+export function getAuthToken() { return authToken; }
+export function setUnauthorizedHandler(fn) { onUnauthorized = fn; }
+
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  if (res.status === 401 && onUnauthorized && !path.startsWith("/auth/")) onUnauthorized();
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed: ${res.status}`);
@@ -216,6 +227,44 @@ api.tendering = {
   changeLog: (params) => request(`/tendering/change-log${qs(params)}`),
   bidComparison: (projectId) => request(`/tendering/bid-comparison/${projectId}`),
   search: (q) => request(`/tendering/search${qs({ q })}`),
+};
+
+api.auth = {
+  login: (data) => request("/auth/login", { method: "POST", body: JSON.stringify(data) }),
+  logout: () => request("/auth/logout", { method: "POST" }),
+  me: () => request("/auth/me"),
+  changePassword: (data) => request("/auth/change-password", { method: "POST", body: JSON.stringify(data) }),
+  forgotPassword: (username) => request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ username }) }),
+  resetPassword: (data) => request("/auth/reset-password", { method: "POST", body: JSON.stringify(data) }),
+};
+
+api.users = {
+  list: () => request("/users"),
+  create: (data) => request("/users", { method: "POST", body: JSON.stringify(data) }),
+  update: (id, data) => request(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (id) => request(`/users/${id}`, { method: "DELETE" }),
+  roles: () => request("/users/roles"),
+  createRole: (data) => request("/users/roles", { method: "POST", body: JSON.stringify(data) }),
+  updateRole: (id, data) => request(`/users/roles/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+};
+
+api.enterprise = {
+  transition: (projectId, transition, data) => request(`/enterprise/workflow/${projectId}/${transition}`, { method: "POST", body: JSON.stringify(data || {}) }),
+  approvals: (projectId) => request(`/enterprise/workflow/${projectId}/approvals`),
+  lockStatus: (projectId) => request(`/enterprise/locks/${projectId}`),
+  acquireLock: (projectId) => request(`/enterprise/locks/${projectId}`, { method: "POST" }),
+  releaseLock: (projectId) => request(`/enterprise/locks/${projectId}`, { method: "DELETE" }),
+  forceUnlock: (projectId) => request(`/enterprise/locks/${projectId}/force`, { method: "POST" }),
+  notifications: () => request("/enterprise/notifications"),
+  markRead: (id) => request(`/enterprise/notifications/${id}/read`, { method: "POST" }),
+  markAllRead: () => request("/enterprise/notifications/read-all", { method: "POST" }),
+  dashboard: () => request("/enterprise/dashboard"),
+  favorites: () => request("/enterprise/favorites"),
+  addFavorite: (projectId) => request(`/enterprise/favorites/${projectId}`, { method: "POST" }),
+  removeFavorite: (projectId) => request(`/enterprise/favorites/${projectId}`, { method: "DELETE" }),
+  activity: (params) => request(`/enterprise/activity${qs(params)}`),
+  loginHistory: () => request("/enterprise/activity/logins"),
+  approvalHistory: () => request("/enterprise/activity/approvals"),
 };
 
 api.excel = {
