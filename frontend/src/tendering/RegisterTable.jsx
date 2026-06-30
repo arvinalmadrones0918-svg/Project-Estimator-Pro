@@ -12,22 +12,22 @@ import { money } from "../utils";
 //   fields   - [{ key, label, type?, money?, options?, hideInTable?, span? }]
 //   columns  - field keys to show as table columns
 //   requireReason - if true, edits prompt for a change reason (change log)
-export default function RegisterTable({ api, title, fields, columns, requireReason, setError }) {
+export default function RegisterTable({ api, title, fields, columns, requireReason, setError, fixed }) {
   const [items, setItems] = useState([]);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(null); // {} new | {id,...} edit
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   function load() {
-    api.list({ q }).then(setItems).catch((e) => setError(e.message));
+    api.list({ q, ...(fixed || {}) }).then(setItems).catch((e) => setError(e.message));
   }
-  useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [q]);
+  useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [q, JSON.stringify(fixed)]);
 
   async function handleSave(form) {
     try {
       // Drop empty-string fields so optional FK/numeric columns stay NULL or
       // fall back to their DB default instead of being coerced to 0.
-      const payload = {};
+      const payload = { ...(fixed || {}) };
       for (const [k, v] of Object.entries(form)) {
         if (v !== "" && v !== undefined) payload[k] = v;
       }

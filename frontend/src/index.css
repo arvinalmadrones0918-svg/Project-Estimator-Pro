@@ -2095,3 +2095,12 @@ textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(-
 .mywork-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .mywork-list li { font-size: 0.85rem; display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 .mywork-action { font-weight: 600; color: var(--accent); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 13 – COST CONTROL & FINANCIAL MANAGEMENT
+   ═══════════════════════════════════════════════════════════════ */
+
+.bva-table { max-width: 520px; }
+.bva-table td { padding: 8px 10px; }
+.bva-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.costcontrol-page .proc-stats-grid { margin-top: 1rem; }

@@ -267,6 +267,26 @@ api.enterprise = {
   approvalHistory: () => request("/enterprise/activity/approvals"),
 };
 
+api.purchaseOrders = makeRegister("purchase-orders");
+api.subcontracts = makeRegister("subcontracts");
+api.variationOrders = makeRegister("variation-orders");
+api.progressBillings = makeRegister("progress-billings");
+api.actualCosts = makeRegister("actual-costs");
+
+api.costControl = {
+  budgets: (projectId) => request(`/cost-control/budgets${qs({ projectId })}`),
+  createBudget: (data) => request("/cost-control/budgets/from-estimate", { method: "POST", body: JSON.stringify(data) }),
+  freezeBudget: (id) => request(`/cost-control/budgets/${id}/freeze`, { method: "POST" }),
+  transfers: (projectId) => request(`/cost-control/transfers${qs({ projectId })}`),
+  createTransfer: (data) => request("/cost-control/transfers", { method: "POST", body: JSON.stringify(data) }),
+  actTransfer: (id, action) => request(`/cost-control/transfers/${id}/${action}`, { method: "POST" }),
+  budgetVsActual: (projectId) => request(`/cost-control/budget-vs-actual/${projectId}`),
+  committed: (projectId) => request(`/cost-control/committed/${projectId}`),
+  earnedValue: (projectId) => request(`/cost-control/earned-value/${projectId}`),
+  cashFlow: (projectId, months) => request(`/cost-control/cash-flow/${projectId}${qs({ months })}`),
+  dashboard: (projectId) => request(`/cost-control/dashboard/${projectId}`),
+};
+
 api.excel = {
   entities: () => request("/excel/entities"),
   templateUrl: (entity) => `/api/excel/template/${entity}`,

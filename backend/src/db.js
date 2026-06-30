@@ -1068,6 +1068,116 @@ ensureColumn("users", "roleId", "roleId INTEGER REFERENCES roles(id)");
 ensureColumn("projects", "workflowStatus", "workflowStatus TEXT NOT NULL DEFAULT 'draft'");
 ensureColumn("projects", "approvalLevel", "approvalLevel INTEGER NOT NULL DEFAULT 0");
 
+// Phase 13: Project cost control & financial management.
+db.exec(`
+  -- Official project budget snapshots created from an approved estimate.
+  CREATE TABLE IF NOT EXISTS budgets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    type TEXT NOT NULL DEFAULT 'original',
+    version INTEGER NOT NULL DEFAULT 1,
+    amount REAL NOT NULL DEFAULT 0,
+    snapshot TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    note TEXT,
+    createdBy TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Budget transfers between WBS / trade / category / GR (approval required).
+  CREATE TABLE IF NOT EXISTS budget_transfers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    dimension TEXT NOT NULL DEFAULT 'wbs',
+    fromKey TEXT NOT NULL,
+    toKey TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reason TEXT,
+    requestedBy TEXT,
+    approvedBy TEXT,
+    actedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    poNumber TEXT,
+    projectId INTEGER REFERENCES projects(id),
+    supplierId INTEGER REFERENCES suppliers(id),
+    supplier TEXT,
+    wbs TEXT,
+    poDate TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    currency TEXT NOT NULL DEFAULT 'USD',
+    deliveryDate TEXT,
+    terms TEXT,
+    remarks TEXT,
+    amount REAL NOT NULL DEFAULT 0,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS subcontracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id),
+    supplierId INTEGER REFERENCES suppliers(id),
+    packageName TEXT NOT NULL,
+    contractAmount REAL NOT NULL DEFAULT 0,
+    retentionPct REAL NOT NULL DEFAULT 0,
+    advancePayment REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    remarks TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS variation_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id),
+    subcontractId INTEGER REFERENCES subcontracts(id),
+    voNumber TEXT,
+    voType TEXT NOT NULL DEFAULT 'client',
+    nature TEXT NOT NULL DEFAULT 'additive',
+    amount REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    description TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS progress_billings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id),
+    billingNo TEXT,
+    billingDate TEXT,
+    percentComplete REAL NOT NULL DEFAULT 0,
+    grossAmount REAL NOT NULL DEFAULT 0,
+    retentionPct REAL NOT NULL DEFAULT 0,
+    vatPct REAL NOT NULL DEFAULT 0,
+    previousBilling REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'draft',
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS actual_costs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER REFERENCES projects(id),
+    category TEXT NOT NULL DEFAULT 'material',
+    description TEXT,
+    amount REAL NOT NULL DEFAULT 0,
+    costDate TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // Indexes on every foreign key and common filter column, created only after
 // the columns above are guaranteed to exist. With line-item volumes in the
 // 100k+ range, these are required for per-module and per-project rollup
@@ -1147,6 +1257,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
   CREATE INDEX IF NOT EXISTS idx_notifications_userId ON notifications(userId);
   CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+  CREATE INDEX IF NOT EXISTS idx_budgets_projectId ON budgets(projectId);
+  CREATE INDEX IF NOT EXISTS idx_budget_transfers_projectId ON budget_transfers(projectId);
+  CREATE INDEX IF NOT EXISTS idx_purchase_orders_projectId ON purchase_orders(projectId);
+  CREATE INDEX IF NOT EXISTS idx_subcontracts_projectId ON subcontracts(projectId);
+  CREATE INDEX IF NOT EXISTS idx_variation_orders_projectId ON variation_orders(projectId);
+  CREATE INDEX IF NOT EXISTS idx_progress_billings_projectId ON progress_billings(projectId);
+  CREATE INDEX IF NOT EXISTS idx_actual_costs_projectId ON actual_costs(projectId);
 `);
 
 // Seed built-in roles and a default administrator once.

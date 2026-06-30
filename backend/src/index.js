@@ -19,6 +19,10 @@ import usersRouter from "./routes/users.js";
 import enterpriseRouter from "./routes/enterprise.js";
 import { authOptional } from "./services/auth.js";
 import {
+  costControlRouter, purchaseOrdersRouter, subcontractsRouter,
+  variationOrdersRouter, progressBillingsRouter, actualCostsRouter,
+} from "./routes/costControl.js";
+import {
   clientsRouter, tendersRouter, drawingsRouter, specificationsRouter,
   addendaRouter, rfisRouter, documentsRouter, miscRouter,
 } from "./routes/tendering.js";
@@ -36,6 +40,12 @@ app.use(authOptional);
 app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/enterprise", enterpriseRouter);
+app.use("/api/cost-control", costControlRouter);
+app.use("/api/purchase-orders", purchaseOrdersRouter);
+app.use("/api/subcontracts", subcontractsRouter);
+app.use("/api/variation-orders", variationOrdersRouter);
+app.use("/api/progress-billings", progressBillingsRouter);
+app.use("/api/actual-costs", actualCostsRouter);
 
 // Legacy simple routes — kept intact so the workspace NodeEditor dropdowns
 // (which call GET /api/materials with no pagination params) still work.

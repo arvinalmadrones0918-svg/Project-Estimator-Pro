@@ -7,6 +7,7 @@ import {
   buildProcurementSummary, buildSupplierComparison, boqToRows,
   buildGRReport, buildGRSummary, buildGRCategoryReport,
 } from "../services/reportService.js";
+import { budgetVsActual, earnedValue, cashFlow, financialDashboard, committedCost } from "../services/costControl.js";
 
 const router = Router();
 
@@ -56,6 +57,11 @@ function generate(reportType, projectId, opts) {
     case "gr-qaqc": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Quality Assurance / Quality Control") };
     case "gr-testing": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Testing & Commissioning") };
     case "gr-closeout": return { kind: "gr", data: buildGRCategoryReport(opts.sheetId, "Project Closeout") };
+    case "cc-budget-vs-actual": return { kind: "kv", data: kvFromObject(budgetVsActual(projectId)) };
+    case "cc-committed": return { kind: "kv", data: kvFromObject(committedCost(projectId)) };
+    case "cc-earned-value": return { kind: "kv", data: kvFromObject(earnedValue(projectId)) };
+    case "cc-forecast": return { kind: "kv", data: kvFromObject(financialDashboard(projectId)) };
+    case "cc-cash-flow": return { kind: "cashflow", data: cashFlow(projectId) };
     default: return null;
   }
 }
@@ -85,7 +91,19 @@ export const REPORT_TYPES = [
   { key: "gr-qaqc", label: "QAQC Report", needsSheet: true },
   { key: "gr-testing", label: "Testing & Commissioning Report", needsSheet: true },
   { key: "gr-closeout", label: "Project Closeout Report", needsSheet: true },
+  { key: "cc-budget-vs-actual", label: "Budget vs Actual", needsProject: true },
+  { key: "cc-committed", label: "Committed Cost", needsProject: true },
+  { key: "cc-earned-value", label: "Earned Value Report", needsProject: true },
+  { key: "cc-forecast", label: "Forecast / Profit Analysis", needsProject: true },
+  { key: "cc-cash-flow", label: "Cash Flow", needsProject: true },
 ];
+
+// Flatten a flat object to {Metric, Value} rows.
+function kvFromObject(obj) {
+  return Object.entries(obj)
+    .filter(([, v]) => typeof v !== "object" || v === null)
+    .map(([Metric, Value]) => ({ Metric, Value: typeof Value === "number" ? Math.round(Value * 100) / 100 : Value }));
+}
 
 router.get("/types", (req, res) => res.json(REPORT_TYPES));
 
@@ -142,6 +160,8 @@ function reportToRows(kind, data) {
     return out;
   }
   if (kind === "gr-summary") return data.rows.map((r) => ({ Category: r.category, Total: r.total })).concat([{ Category: "GRAND TOTAL", Total: data.grandTotal }]);
+  if (kind === "kv") return data;
+  if (kind === "cashflow") return data.series;
   if (kind === "procurement") return data.rows.map((r) => ({ Code: r.code, Description: r.description, Unit: r.unit, "Current Price": r.unitPrice, Quotes: r.quotes, "Selected Supplier": r.selectedSupplier || "" }));
   if (kind === "supplier") return data.rows.map((r) => ({ Code: r.code, Description: r.name, Unit: r.unit, Lowest: r.lowest, Highest: r.highest, Average: r.average }));
   return [];

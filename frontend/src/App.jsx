@@ -12,6 +12,7 @@ import ReportsPage from "./reports/ReportsPage";
 import TenderingPage from "./tendering/TenderingPage";
 import GeneralRequirementsPage from "./gr/GeneralRequirementsPage";
 import ExcelPage from "./excel/ExcelPage";
+import CostControlPage from "./costcontrol/CostControlPage";
 import GlobalSearch from "./tendering/GlobalSearch";
 import AdminPage from "./auth/AdminPage";
 import MyWorkPage from "./auth/MyWorkPage";
@@ -102,6 +103,7 @@ const TABS = [
   { key: "suppliers", label: "Suppliers", component: SuppliersPage },
   { key: "procurement", label: "Procurement", component: ProcurementPage },
   { key: "tendering", label: "Tendering", component: TenderingPage },
+  { key: "cost-control", label: "Cost Control", component: CostControlPage },
   { key: "modules", label: "Work Modules", component: ModulesPage },
   { key: "materials-legacy", label: "Mat DB (legacy)", component: MaterialsPage },
   { key: "labor-legacy", label: "Labor DB (legacy)", component: LaborPage },

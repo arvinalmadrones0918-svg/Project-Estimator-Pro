@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyIndirectCosts, __upaResourceAmountForTest, __grItemBaseAmountForTest } from "../src/services/costEngine.js";
+import { currentBillingNet } from "../src/services/costControl.js";
 
 // The indirect-cost waterfall is the financial heart of the engine. These
 // tests pin the order of operations and every item method/scope combination.
@@ -159,6 +160,18 @@ test("GR formula rejects unknown identifiers", () => {
 test("GR percentage methods defer (base 0 until sheet resolves context)", () => {
   // grItemBaseAmount only handles non-pct methods; pct resolved at sheet level.
   assert.equal(__grItemBaseAmountForTest({ method: "monthly", rate: 0 }, grCtx), 0);
+});
+
+// ── Cost control: progress billing net ──────────────────────────────────────
+
+test("progress billing net applies retention, VAT and prior billing", () => {
+  // gross 100,000; 10% retention -> 90,000; +12% VAT -> 100,800; minus 40,000 prior
+  const net = currentBillingNet({ grossAmount: 100000, retentionPct: 10, vatPct: 12, previousBilling: 40000 });
+  assert.ok(Math.abs(net - 60800) < 1e-6);
+});
+
+test("progress billing net with no deductions equals gross", () => {
+  assert.equal(currentBillingNet({ grossAmount: 5000, retentionPct: 0, vatPct: 0, previousBilling: 0 }), 5000);
 });
 
 test("multiple indirect lines accumulate and are itemised", () => {
