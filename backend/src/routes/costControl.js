@@ -3,7 +3,7 @@ import { db } from "../db.js";
 import { makeRegisterRouter } from "./registerRouter.js";
 import {
   createBudgetFromEstimate, latestBudget, budgetVsActual, earnedValue,
-  cashFlow, financialDashboard, currentBillingNet, committedCost,
+  cashFlow, financialDashboard, currentBillingNet, committedCost, costAlerts,
 } from "../services/costControl.js";
 
 // ── CRUD registers (reuse the generic factory) ──────────────────────────────
@@ -109,7 +109,11 @@ costControlRouter.get("/earned-value/:projectId", (req, res) => res.json(earnedV
   percentComplete: req.query.percentComplete != null ? Number(req.query.percentComplete) : undefined,
   plannedPercent: req.query.plannedPercent != null ? Number(req.query.plannedPercent) : undefined,
 })));
-costControlRouter.get("/cash-flow/:projectId", (req, res) => res.json(cashFlow(Number(req.params.projectId), { months: req.query.months ? Number(req.query.months) : undefined })));
+costControlRouter.get("/cash-flow/:projectId", (req, res) => res.json(cashFlow(Number(req.params.projectId), {
+  months: req.query.months ? Number(req.query.months) : undefined,
+  granularity: req.query.granularity === "week" ? "week" : "month",
+})));
 costControlRouter.get("/dashboard/:projectId", (req, res) => res.json(financialDashboard(Number(req.params.projectId))));
+costControlRouter.get("/alerts/:projectId", (req, res) => res.json(costAlerts(Number(req.params.projectId))));
 
 export default costControlRouter;

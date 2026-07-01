@@ -98,11 +98,17 @@ export function earnedValue(projectId, { percentComplete, plannedPercent } = {})
   return { BAC, percentComplete: pctComplete, plannedPercent: pctPlanned, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC };
 }
 
-// Monthly cash flow + S-curve. Distributes the budget across the project
-// duration with a standard S-curve, and overlays actual revenue from billings.
-export function cashFlow(projectId, { months } = {}) {
+// Cash flow + S-curve. Distributes the budget across the project duration with
+// a standard S-curve (planned), overlays actual revenue from billings, and
+// buckets recorded actual costs by period so planned vs actual can be charted.
+// granularity: "month" (default) or "week".
+export function cashFlow(projectId, { months, granularity = "month" } = {}) {
   const sheet = db.prepare("SELECT calendarMonths, durationDays FROM gr_sheets WHERE projectId = ? ORDER BY id DESC LIMIT 1").get(projectId);
-  const n = Math.max(1, Math.round(months || sheet?.calendarMonths || (sheet?.durationDays ? sheet.durationDays / 30 : 0) || 6));
+  const periodDays = granularity === "week" ? 7 : 30;
+  const defaultPeriods = granularity === "week"
+    ? Math.round((sheet?.durationDays || 180) / 7)
+    : (sheet?.calendarMonths || (sheet?.durationDays ? sheet.durationDays / 30 : 0) || 6);
+  const n = Math.max(1, Math.round(months || defaultPeriods));
   const BAC = budgetVsActual(projectId).budget;
 
   // Standard S-curve weights via a smoothstep over [0,1].
@@ -115,27 +121,110 @@ export function cashFlow(projectId, { months } = {}) {
     prev = s;
   }
 
-  // Actual revenue (current billings) per month index if billingDate present.
+  // Actual revenue (current billings).
   const billings = db.prepare("SELECT billingDate, grossAmount, retentionPct, vatPct, previousBilling FROM progress_billings WHERE projectId = ? AND deletedAt IS NULL ORDER BY id").all(projectId);
   const revenueTotal = billings.reduce((s, b) => s + currentBillingNet(b), 0);
 
-  let cumCost = 0, cumRevenue = 0;
+  // Bucket recorded actual costs into periods by costDate, relative to the
+  // earliest cost/billing date (or the project's creation date).
+  const project = db.prepare("SELECT createdAt FROM projects WHERE id = ?").get(projectId);
+  const actuals = db.prepare("SELECT costDate, amount FROM actual_costs WHERE projectId = ? AND deletedAt IS NULL").all(projectId);
+  const dates = [...actuals.map((a) => a.costDate), ...billings.map((b) => b.billingDate)].filter(Boolean).map((d) => new Date(d).getTime()).filter((t) => !isNaN(t));
+  const start = dates.length ? Math.min(...dates) : (project?.createdAt ? new Date(project.createdAt).getTime() : Date.now());
+  const actualByPeriod = new Array(n).fill(0);
+  for (const a of actuals) {
+    const t = a.costDate ? new Date(a.costDate).getTime() : NaN;
+    let idx = isNaN(t) ? 0 : Math.floor((t - start) / (periodDays * 86400000));
+    idx = Math.max(0, Math.min(n - 1, idx));
+    actualByPeriod[idx] += a.amount || 0;
+  }
+
+  let cumCost = 0, cumRevenue = 0, cumActual = 0;
   const series = weights.map((w, i) => {
     const plannedCost = BAC * w;
     cumCost += plannedCost;
-    // Spread total revenue evenly as a simple projection.
-    const revenue = revenueTotal / n;
+    const revenue = revenueTotal / n; // spread projected revenue evenly
     cumRevenue += revenue;
+    const actualCost = actualByPeriod[i];
+    cumActual += actualCost;
     return {
+      period: i + 1,
       month: i + 1,
       plannedCost: round(plannedCost),
-      cumulativeCost: round(cumCost),     // S-curve
+      cumulativeCost: round(cumCost),        // planned S-curve
+      actualCost: round(actualCost),
+      cumulativeActual: round(cumActual),    // actual S-curve
       projectedRevenue: round(revenue),
       cumulativeRevenue: round(cumRevenue),
-      netCashFlow: round(cumRevenue - cumCost),
+      netCashFlow: round(cumRevenue - cumActual),
     };
   });
-  return { months: n, BAC, revenueTotal, series };
+  return { granularity, months: n, periods: n, BAC, revenueTotal, actualTotal: round(cumActual), series };
+}
+
+// Cost-control alerts. Scans budget/actual/committed/cash-flow/supplier data
+// and returns a prioritized list of exceptions for the project.
+export function costAlerts(projectId, { varianceThresholdPct = 10 } = {}) {
+  const bva = budgetVsActual(projectId);
+  const alerts = [];
+  const push = (severity, type, message, detail = {}) => alerts.push({ severity, type, message, ...detail });
+
+  // 1. Budget exceeded (actual + committed beyond budget).
+  const spent = bva.actual + bva.committed;
+  if (bva.budget > 0 && spent > bva.budget) {
+    push("critical", "budget_exceeded", `Committed + actual (${round(spent)}) exceeds budget (${round(bva.budget)}).`,
+      { over: round(spent - bva.budget) });
+  }
+
+  // 2. Category over budget — compare actual-by-category against the estimate's
+  // direct-cost breakdown (canonical categories).
+  const original = latestBudget(projectId, "original");
+  const snap = original?.snapshot ? JSON.parse(original.snapshot) : null;
+  const dcb = snap?.directCostBreakdown || {};
+  const catBudget = {
+    Materials: dcb.materialCost, Labor: dcb.laborCost, Equipment: dcb.equipmentCost,
+    Subcontract: dcb.subcontractCost, Other: dcb.otherCost,
+  };
+  for (const [cat, actual] of Object.entries(bva.actualDetail || {})) {
+    const key = Object.keys(catBudget).find((k) => k.toLowerCase() === String(cat).toLowerCase());
+    const budgeted = key ? catBudget[key] : undefined;
+    if (budgeted != null && actual > budgeted) {
+      push("warning", "category_over_budget", `Category "${cat}" actual (${round(actual)}) exceeds its budget (${round(budgeted)}).`,
+        { category: cat, over: round(actual - budgeted) });
+    }
+  }
+
+  // 3. Negative cash flow in any period.
+  const cf = cashFlow(projectId);
+  const negative = cf.series.filter((s) => s.netCashFlow < 0);
+  if (negative.length) {
+    push("warning", "cash_flow_negative", `Net cash flow is negative in ${negative.length} period(s).`,
+      { periods: negative.map((s) => s.period), lowest: Math.min(...negative.map((s) => s.netCashFlow)) });
+  }
+
+  // 4. High cost variance (over budget beyond threshold).
+  if (bva.variancePct != null && bva.variancePct < -varianceThresholdPct) {
+    push("critical", "high_variance", `Cost variance is ${round(bva.variancePct)}% (over budget).`,
+      { variancePct: round(bva.variancePct) });
+  }
+
+  // 5. Supplier overrun — a PO whose amount exceeds the awarded quotation total.
+  const pos = db.prepare("SELECT id, poNumber, supplier, amount, quotationId FROM purchase_orders WHERE projectId = ? AND deletedAt IS NULL AND quotationId IS NOT NULL").all(projectId);
+  for (const po of pos) {
+    const items = db.prepare(
+      `SELECT COALESCE(SUM(sqi.unitPrice * ri.quantity),0) AS total
+       FROM supplier_quotation_items sqi JOIN rfq_items ri ON ri.id = sqi.rfqItemId
+       WHERE sqi.quotationId = ?`
+    ).get(po.quotationId).total;
+    if (items > 0 && po.amount > items + 0.005) {
+      push("warning", "supplier_overrun", `PO ${po.poNumber} (${po.supplier}) amount ${round(po.amount)} exceeds awarded quote ${round(items)}.`,
+        { poId: po.id, over: round(po.amount - items) });
+    }
+  }
+
+  const order = { critical: 0, warning: 1, info: 2 };
+  alerts.sort((a, b) => order[a.severity] - order[b.severity]);
+  return { count: alerts.length, critical: alerts.filter((a) => a.severity === "critical").length, alerts };
 }
 
 export function currentBillingNet(b) {

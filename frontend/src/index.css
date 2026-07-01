@@ -2233,3 +2233,34 @@ textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(-
 .proc-attach-type { font-size: 0.66rem; text-transform: uppercase; background: var(--border); padding: 1px 5px; border-radius: 5px; }
 .proc-upload { cursor: pointer; }
 @media (max-width: 900px) { .proc-split { grid-template-columns: 1fr; } }
+
+/* ── Phase 9: Cost Control workspace ─────────────────────────────────────────── */
+.costcontrol-workspace { padding: 0.5rem 0.25rem; }
+.cc-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+.cc-form-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+.cc-form-row input, .cc-form-row select { padding: 0.35rem 0.5rem; }
+.cc-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.cc-chart { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; }
+.cc-chart h4 { margin: 0 0 0.5rem; }
+.cc-over { color: var(--danger); }
+.cc-ok { color: var(--success, #1faa59); }
+.cc-over-row { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.cc-bva td:first-child { font-weight: 600; width: 40%; }
+.cc-evm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+.cc-evm-cell { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; text-align: center; }
+.cc-evm-value { font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+.cc-evm-label { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+.cc-alerts { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.cc-alert { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); }
+.cc-alert-critical { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: var(--danger); }
+.cc-alert-warning { background: #f9a82522; border-color: #f9a825; }
+.cc-alert-badge { text-transform: uppercase; font-size: 0.64rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; background: var(--border); }
+.cc-alert-critical .cc-alert-badge { background: var(--danger); color: #fff; }
+.cc-alert-warning .cc-alert-badge { background: #f9a825; color: #3a2c00; }
+.cc-alert-type { font-weight: 600; text-transform: capitalize; }
+.cc-alert-msg { color: var(--muted); font-size: 0.85rem; }
+.cc-report-list, .cc-report-list li { list-style: none; }
+.cc-report-list { padding: 0; }
+.cc-report-list li { padding: 4px 0; }
+.cc-report-key { font-size: 0.66rem; text-transform: uppercase; background: var(--border); padding: 1px 6px; border-radius: 5px; margin-right: 6px; }
+@media (max-width: 900px) { .cc-charts { grid-template-columns: 1fr; } }

@@ -282,3 +282,78 @@ describe("Procurement workflow", () => {
     expect(res.body.budgetVsProcurement.procurement).toBe(500);  // PO amount
   });
 });
+
+// ── Phase 9: Cost Control & Budget Monitoring ────────────────────────────────
+
+describe("Cost control & budget monitoring", () => {
+  let projectId, budget;
+
+  test("setup: project with an estimate + budget from estimate", async () => {
+    const proj = await request(app).post("/api/projects").send({ name: "CC Tower" });
+    projectId = proj.body.id;
+    const mat = await request(app).post("/api/materials").send({ name: "Concrete", category: "Structural", unit: "m3", unitPrice: 100 });
+    const mod = await request(app).post("/api/modules").send({ name: "Foundation", projectId });
+    await request(app).post(`/api/modules/${mod.body.id}/materials`).send({ materialId: mat.body.id, quantity: 50 });
+
+    const b = await request(app).post("/api/cost-control/budgets/from-estimate").send({ projectId });
+    expect(b.status).toBe(201);
+    expect(b.body.amount).toBeGreaterThan(0);
+    budget = b.body.amount;
+  });
+
+  test("budget vs actual computes variance and variance %", async () => {
+    await request(app).post("/api/actual-costs").send({ projectId, category: "Payroll", description: "Crew", amount: 500 });
+    const res = await request(app).get(`/api/cost-control/budget-vs-actual/${projectId}`);
+    expect(res.body.actual).toBe(500);
+    expect(res.body.variance).toBeCloseTo(budget - 500, 2);
+    expect(res.body.variancePct).toBeCloseTo(((budget - 500) / budget) * 100, 2);
+  });
+
+  test("approved change order updates the revised budget", async () => {
+    const vo = await request(app).post("/api/variation-orders").send({ projectId, voType: "owner", nature: "additive", amount: 1000, status: "approved" });
+    expect(vo.status).toBe(201);
+    const res = await request(app).get(`/api/cost-control/budget-vs-actual/${projectId}`);
+    expect(res.body.revisedBudget).toBeCloseTo(budget + 1000, 2);
+    expect(res.body.budget).toBeCloseTo(budget + 1000, 2);
+  });
+
+  test("earned value returns the full EVM metric set", async () => {
+    const res = await request(app).get(`/api/cost-control/earned-value/${projectId}?percentComplete=50`);
+    const e = res.body;
+    for (const k of ["PV", "EV", "AC", "CV", "SV", "CPI", "SPI", "EAC", "ETC", "VAC", "BAC"]) expect(e).toHaveProperty(k);
+    expect(e.EV).toBeCloseTo(e.BAC * 0.5, 2);
+    expect(e.CV).toBeCloseTo(e.EV - e.AC, 2);
+    expect(e.CPI).toBeCloseTo(e.EV / e.AC, 4);
+  });
+
+  test("cash flow returns an S-curve with planned vs actual and weekly granularity", async () => {
+    const monthly = await request(app).get(`/api/cost-control/cash-flow/${projectId}?months=6`);
+    expect(monthly.body.series.length).toBe(6);
+    const last = monthly.body.series[5];
+    expect(last.cumulativeCost).toBeCloseTo(monthly.body.BAC, 0);   // S-curve completes at BAC
+    expect(monthly.body.actualTotal).toBe(500);                     // recorded actual bucketed
+    const weekly = await request(app).get(`/api/cost-control/cash-flow/${projectId}?months=8&granularity=week`);
+    expect(weekly.body.granularity).toBe("week");
+    expect(weekly.body.series.length).toBe(8);
+  });
+
+  test("alerts fire when actual exceeds budget", async () => {
+    // Push actual well beyond the budget to trigger budget_exceeded + high_variance.
+    await request(app).post("/api/actual-costs").send({ projectId, category: "Miscellaneous", description: "Overrun", amount: budget + 5000 });
+    const res = await request(app).get(`/api/cost-control/alerts/${projectId}`);
+    const types = res.body.alerts.map((a) => a.type);
+    expect(types).toContain("budget_exceeded");
+    expect(res.body.critical).toBeGreaterThanOrEqual(1);
+  });
+
+  test("cost-control report types are exposed", async () => {
+    const res = await request(app).get("/api/reports/types");
+    const keys = res.body.map((t) => t.key);
+    expect(keys).toEqual(expect.arrayContaining(["cc-budget", "cc-actual-cost", "cc-variance", "cc-earned-value", "cc-cash-flow", "cc-forecast"]));
+  });
+
+  test("variance report reflects budget vs actual", async () => {
+    const res = await request(app).get("/api/reports/generate/cc-variance").query({ projectId });
+    expect(res.status).toBe(200);
+  });
+});

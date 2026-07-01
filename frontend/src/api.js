@@ -321,8 +321,9 @@ api.costControl = {
   budgetVsActual: (projectId) => request(`/cost-control/budget-vs-actual/${projectId}`),
   committed: (projectId) => request(`/cost-control/committed/${projectId}`),
   earnedValue: (projectId) => request(`/cost-control/earned-value/${projectId}`),
-  cashFlow: (projectId, months) => request(`/cost-control/cash-flow/${projectId}${qs({ months })}`),
+  cashFlow: (projectId, months, granularity) => request(`/cost-control/cash-flow/${projectId}${qs({ months, granularity })}`),
   dashboard: (projectId) => request(`/cost-control/dashboard/${projectId}`),
+  alerts: (projectId) => request(`/cost-control/alerts/${projectId}`),
 };
 
 api.excel = {

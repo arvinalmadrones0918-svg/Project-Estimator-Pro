@@ -8,7 +8,7 @@ import {
   buildGRReport, buildGRSummary, buildGRCategoryReport,
   buildRevisionComparison,
 } from "../services/reportService.js";
-import { budgetVsActual, earnedValue, cashFlow, financialDashboard, committedCost } from "../services/costControl.js";
+import { budgetVsActual, earnedValue, cashFlow, financialDashboard, committedCost, actualCostByCategory } from "../services/costControl.js";
 
 const router = Router();
 
@@ -63,6 +63,9 @@ function generate(reportType, projectId, opts) {
     case "cc-earned-value": return { kind: "kv", data: kvFromObject(earnedValue(projectId)) };
     case "cc-forecast": return { kind: "kv", data: kvFromObject(financialDashboard(projectId)) };
     case "cc-cash-flow": return { kind: "cashflow", data: cashFlow(projectId) };
+    case "cc-budget": return { kind: "kv", data: kvFromObject(budgetReport(projectId)) };
+    case "cc-actual-cost": return { kind: "summary", data: actualCostReport(projectId) };
+    case "cc-variance": return { kind: "kv", data: kvFromObject(varianceReport(projectId)) };
     default: return null;
   }
 }
@@ -96,8 +99,48 @@ export const REPORT_TYPES = [
   { key: "cc-committed", label: "Committed Cost", needsProject: true },
   { key: "cc-earned-value", label: "Earned Value Report", needsProject: true },
   { key: "cc-forecast", label: "Forecast / Profit Analysis", needsProject: true },
-  { key: "cc-cash-flow", label: "Cash Flow", needsProject: true },
+  { key: "cc-cash-flow", label: "Cash Flow Report", needsProject: true },
+  { key: "cc-budget", label: "Budget Report", needsProject: true },
+  { key: "cc-actual-cost", label: "Actual Cost Report", needsProject: true },
+  { key: "cc-variance", label: "Variance Report", needsProject: true },
 ];
+
+// Budget report: original / revised / current forecast / remaining.
+function budgetReport(projectId) {
+  const bva = budgetVsActual(projectId);
+  const fd = financialDashboard(projectId);
+  return {
+    originalBudget: bva.originalBudget,
+    revisedBudget: bva.revisedBudget,
+    approvedBudget: bva.budget,
+    committed: bva.committed,
+    currentForecast: fd.forecastFinalCost,
+    remainingBudget: bva.remaining,
+  };
+}
+
+// Actual cost report: a summary-kind breakdown by category.
+function actualCostReport(projectId) {
+  const acc = actualCostByCategory(projectId);
+  return {
+    title: "Actual Cost Report",
+    rows: Object.entries(acc.byCategory).map(([name, amount]) => ({ code: "", description: name, unit: "", quantity: "", amount })),
+    total: acc.total,
+  };
+}
+
+// Variance report: budget vs actual with variance and variance %.
+function varianceReport(projectId) {
+  const bva = budgetVsActual(projectId);
+  return {
+    budget: bva.budget,
+    actual: bva.actual,
+    committed: bva.committed,
+    variance: bva.variance,
+    variancePct: bva.variancePct,
+    remaining: bva.remaining,
+  };
+}
 
 // Flatten a flat object to {Metric, Value} rows.
 function kvFromObject(obj) {
