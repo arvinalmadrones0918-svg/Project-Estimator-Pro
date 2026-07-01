@@ -2189,3 +2189,47 @@ textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(-
 @media (max-width: 1100px) {
   .cost-summary-sidebar:not(.collapsed) { display: none; }
 }
+
+/* ── Phase 8: Procurement workspace ─────────────────────────────────────────── */
+.procurement-workspace { padding: 0.5rem 0.25rem; }
+.proc-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 0.75rem; }
+.proc-tab { border: none; background: transparent; padding: 0.45rem 0.8rem; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; font-size: 0.85rem; }
+.proc-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.proc-tab-body { min-height: 200px; }
+.proc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.proc-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; text-align: center; }
+.proc-card-value { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+.proc-card-label { font-size: 0.76rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.proc-budget { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-width: 420px; }
+.proc-budget-row { display: flex; justify-content: space-between; padding: 4px 0; }
+.proc-budget-row.over strong { color: var(--danger); }
+.proc-budget-row.under strong { color: var(--success, #2e7d32); }
+.proc-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; margin: 0.5rem 0; }
+.proc-table th, .proc-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.proc-table tbody tr { cursor: default; }
+.proc-list-col tr { cursor: pointer; }
+.proc-table tbody tr.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.proc-table tbody tr.awarded { background: color-mix(in srgb, var(--success, #2e7d32) 12%, transparent); }
+.proc-split { display: grid; grid-template-columns: minmax(280px, 1fr) 2fr; gap: 1rem; }
+.proc-detail-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 0.75rem; }
+.proc-status-actions { display: flex; align-items: center; gap: 0.5rem; }
+.proc-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; text-transform: capitalize; background: var(--border); color: var(--text); }
+.proc-draft { background: #9993; } .proc-for-approval { background: #f9a82533; color: #b26a00; }
+.proc-approved { background: #2e7d3233; color: #2e7d32; } .proc-rejected { background: #c6282833; color: #c62828; }
+.proc-cancelled { background: #7773; }
+.proc-bid th.lowest, .proc-bid td.lowest { background: color-mix(in srgb, var(--success, #2e7d32) 15%, transparent); }
+.proc-bid th.best { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.proc-total-row td { font-weight: 700; border-top: 2px solid var(--border); }
+.proc-flag { display: inline-block; margin-left: 4px; font-size: 0.62rem; padding: 1px 5px; border-radius: 6px; vertical-align: middle; }
+.proc-flag.lowest { background: #2e7d32; color: #fff; } .proc-flag.best { background: var(--accent); color: #fff; }
+.proc-modal { max-width: 620px; width: 90%; }
+.proc-pick-list { max-height: 180px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; display: flex; flex-direction: column; gap: 3px; margin-bottom: 0.5rem; }
+.proc-hint { font-size: 0.78rem; color: var(--muted); margin: 0.5rem 0 0.25rem; }
+.proc-price-input { width: 90px; } 
+.proc-attach-count { font-size: 0.76rem; color: var(--muted); }
+.proc-attachments { margin-top: 1rem; }
+.proc-attach-list { list-style: none; padding: 0; margin: 0; }
+.proc-attach-list li { display: flex; align-items: center; gap: 0.5rem; padding: 4px 0; font-size: 0.82rem; }
+.proc-attach-type { font-size: 0.66rem; text-transform: uppercase; background: var(--border); padding: 1px 5px; border-radius: 5px; }
+.proc-upload { cursor: pointer; }
+@media (max-width: 900px) { .proc-split { grid-template-columns: 1fr; } }

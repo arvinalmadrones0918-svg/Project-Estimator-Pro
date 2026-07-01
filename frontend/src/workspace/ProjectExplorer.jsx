@@ -135,6 +135,7 @@ export default function ProjectExplorer({
           })}
 
           <NavNode id="costSummary" icon="📊" label="Cost Summary" />
+          <NavNode id="procurement" icon="🛒" label="Procurement" />
           <NavNode id="reports" icon="📑" label="Reports" />
         </>
       )}

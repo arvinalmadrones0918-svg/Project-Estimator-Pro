@@ -1267,6 +1267,154 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_actual_costs_projectId ON actual_costs(projectId);
 `);
 
+// ── Phase 8: Procurement workflow ────────────────────────────────────────────
+// A project-centric procurement pipeline layered on top of the existing
+// suppliers table: RFQ → supplier quotations → bid comparison → award →
+// purchase request → purchase order, plus supplier performance, attachments,
+// and a shared Draft/For Approval/Approved/Rejected/Cancelled workflow.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS rfqs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    rfqNumber TEXT,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    dueDate TEXT,
+    notes TEXT,
+    createdBy TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Line items requested in an RFQ, typically generated from estimate items.
+  CREATE TABLE IF NOT EXISTS rfq_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rfqId INTEGER NOT NULL REFERENCES rfqs(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    unit TEXT,
+    quantity REAL NOT NULL DEFAULT 0,
+    sourceType TEXT,
+    sourceRefId INTEGER,
+    sortOrder INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Suppliers invited to quote on an RFQ.
+  CREATE TABLE IF NOT EXISTS rfq_suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rfqId INTEGER NOT NULL REFERENCES rfqs(id) ON DELETE CASCADE,
+    supplierId INTEGER NOT NULL REFERENCES suppliers(id)
+  );
+
+  -- A supplier's quotation header for one RFQ (many per RFQ).
+  CREATE TABLE IF NOT EXISTS supplier_quotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rfqId INTEGER NOT NULL REFERENCES rfqs(id) ON DELETE CASCADE,
+    supplierId INTEGER NOT NULL REFERENCES suppliers(id),
+    quoteNumber TEXT,
+    status TEXT NOT NULL DEFAULT 'draft',
+    currency TEXT NOT NULL DEFAULT 'USD',
+    leadTimeDays INTEGER,
+    validityDate TEXT,
+    remarks TEXT,
+    isAwarded INTEGER NOT NULL DEFAULT 0,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A supplier's price for one RFQ line item.
+  CREATE TABLE IF NOT EXISTS supplier_quotation_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    quotationId INTEGER NOT NULL REFERENCES supplier_quotations(id) ON DELETE CASCADE,
+    rfqItemId INTEGER NOT NULL REFERENCES rfq_items(id) ON DELETE CASCADE,
+    unitPrice REAL NOT NULL DEFAULT 0,
+    remarks TEXT
+  );
+
+  -- A purchase request generated from approved estimate items.
+  CREATE TABLE IF NOT EXISTS purchase_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    prNumber TEXT,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    requiredDate TEXT,
+    notes TEXT,
+    createdBy TEXT,
+    deletedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS purchase_request_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prId INTEGER NOT NULL REFERENCES purchase_requests(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    unit TEXT,
+    quantity REAL NOT NULL DEFAULT 0,
+    estimatedUnitCost REAL NOT NULL DEFAULT 0,
+    sourceType TEXT,
+    sourceRefId INTEGER,
+    sortOrder INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Line items on a purchase order (the header lives in purchase_orders).
+  CREATE TABLE IF NOT EXISTS purchase_order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    poId INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    unit TEXT,
+    quantity REAL NOT NULL DEFAULT 0,
+    unitPrice REAL NOT NULL DEFAULT 0,
+    sortOrder INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Supplier performance evaluation, optionally tied to a project / PO.
+  CREATE TABLE IF NOT EXISTS supplier_performance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    supplierId INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+    projectId INTEGER REFERENCES projects(id),
+    poId INTEGER REFERENCES purchase_orders(id),
+    deliveryRating REAL NOT NULL DEFAULT 0,
+    qualityRating REAL NOT NULL DEFAULT 0,
+    priceRating REAL NOT NULL DEFAULT 0,
+    overallScore REAL NOT NULL DEFAULT 0,
+    remarks TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Attachments (PDF / Excel / drawings / images) for any procurement entity.
+  CREATE TABLE IF NOT EXISTS procurement_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entityType TEXT NOT NULL,
+    entityId INTEGER NOT NULL,
+    fileName TEXT NOT NULL,
+    fileType TEXT,
+    size INTEGER NOT NULL DEFAULT 0,
+    dataUrl TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_rfqs_projectId ON rfqs(projectId);
+  CREATE INDEX IF NOT EXISTS idx_rfq_items_rfqId ON rfq_items(rfqId);
+  CREATE INDEX IF NOT EXISTS idx_rfq_suppliers_rfqId ON rfq_suppliers(rfqId);
+  CREATE INDEX IF NOT EXISTS idx_supplier_quotations_rfqId ON supplier_quotations(rfqId);
+  CREATE INDEX IF NOT EXISTS idx_supplier_quotation_items_quotationId ON supplier_quotation_items(quotationId);
+  CREATE INDEX IF NOT EXISTS idx_purchase_requests_projectId ON purchase_requests(projectId);
+  CREATE INDEX IF NOT EXISTS idx_purchase_request_items_prId ON purchase_request_items(prId);
+  CREATE INDEX IF NOT EXISTS idx_purchase_order_items_poId ON purchase_order_items(poId);
+  CREATE INDEX IF NOT EXISTS idx_supplier_performance_supplierId ON supplier_performance(supplierId);
+  CREATE INDEX IF NOT EXISTS idx_procurement_attachments_entity ON procurement_attachments(entityType, entityId);
+`);
+
+// Link a purchase order back to the RFQ / quotation / purchase request it came
+// from, and carry the shared approval workflow status on the PO header.
+ensureColumn("purchase_orders", "rfqId", "rfqId INTEGER REFERENCES rfqs(id)");
+ensureColumn("purchase_orders", "quotationId", "quotationId INTEGER REFERENCES supplier_quotations(id)");
+ensureColumn("purchase_orders", "prId", "prId INTEGER REFERENCES purchase_requests(id)");
+ensureColumn("purchase_orders", "approvalStatus", "approvalStatus TEXT NOT NULL DEFAULT 'draft'");
+
 // Seed built-in roles and a default administrator once.
 {
   const ALL_MODULES = ["Projects", "Catalogs", "UPA", "Assemblies", "GeneralRequirements", "Procurement", "Tender", "Reports", "Administration", "Import", "Export"];

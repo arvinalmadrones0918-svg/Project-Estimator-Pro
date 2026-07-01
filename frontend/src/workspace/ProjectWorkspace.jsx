@@ -11,6 +11,7 @@ import CostSummarySidebar from "./CostSummarySidebar";
 import BottomSummaryBar from "./BottomSummaryBar";
 import WorkflowBar from "../auth/WorkflowBar";
 import ReportsPage from "../reports/ReportsPage";
+import ProcurementWorkspace from "../procurement/ProcurementWorkspace";
 
 export default function ProjectWorkspace({ projectId, onBack }) {
   const [project, setProject] = useState(null);
@@ -166,6 +167,8 @@ export default function ProjectWorkspace({ projectId, onBack }) {
               onScenarioChange={setActiveScenarioId} onScenariosChanged={refreshScenarios}
               onRecalc={recalc} setError={setError}
             />
+          ) : selection.type === "procurement" ? (
+            <ProcurementWorkspace projectId={projectId} />
           ) : selection.type === "reports" ? (
             <ReportsPage initialProjectId={projectId} />
           ) : (
