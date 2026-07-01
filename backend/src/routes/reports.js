@@ -6,6 +6,7 @@ import {
   buildProjectCostSummary, buildWbsSummary, buildCostBreakdown, buildUpaReport,
   buildProcurementSummary, buildSupplierComparison, boqToRows,
   buildGRReport, buildGRSummary, buildGRCategoryReport,
+  buildRevisionComparison,
 } from "../services/reportService.js";
 import { budgetVsActual, earnedValue, cashFlow, financialDashboard, committedCost } from "../services/costControl.js";
 
@@ -167,7 +168,21 @@ function reportToRows(kind, data) {
   return [];
 }
 
-// Export a report as xlsx or csv.
+// Build a worksheet with auto-width columns and a frozen header row.
+function sheetFromRows(rows) {
+  const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Note: "No data" }]);
+  const cols = Object.keys(rows[0] || { Note: "" });
+  ws["!cols"] = cols.map((c) => {
+    const maxLen = Math.max(c.length, ...rows.map((r) => String(r[c] ?? "").length));
+    return { wch: Math.min(60, Math.max(10, maxLen + 2)) };
+  });
+  ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
+  return ws;
+}
+
+// Export a report as a professionally formatted xlsx workbook (or csv).
+// xlsx: main report sheet + a Project Summary sheet (for project reports),
+// auto-width columns, frozen header, and totals rows from reportToRows.
 router.get("/export/:reportType", (req, res) => {
   const { reportType } = req.params;
   const projectId = req.query.projectId ? Number(req.query.projectId) : null;
@@ -179,13 +194,40 @@ router.get("/export/:reportType", (req, res) => {
 
   const rows = reportToRows(result.kind, result.data);
   const fmt = req.query.format === "csv" ? "csv" : "xlsx";
-  const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Note: "No data" }]);
+
+  if (fmt === "csv") {
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Note: "No data" }]);
+    const buf = XLSX.write({ SheetNames: ["data"], Sheets: { data: ws } }, { type: "buffer", bookType: "csv" });
+    res.set("Content-Disposition", `attachment; filename="${reportType}.csv"`);
+    res.set("Content-Type", "text/csv");
+    return res.send(buf);
+  }
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, meta.label.slice(0, 28));
-  const buf = XLSX.write(wb, { type: "buffer", bookType: fmt });
-  res.set("Content-Disposition", `attachment; filename="${reportType}.${fmt}"`);
-  res.set("Content-Type", fmt === "csv" ? "text/csv" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  XLSX.utils.book_append_sheet(wb, sheetFromRows(rows), meta.label.slice(0, 28));
+  // For project reports, add a second worksheet with the cost waterfall summary.
+  if (projectId) {
+    try {
+      const summary = generate("project-cost-summary", projectId, {});
+      if (summary?.data) XLSX.utils.book_append_sheet(wb, sheetFromRows(reportToRows("project", summary.data)), "Project Summary");
+    } catch { /* summary is best-effort */ }
+  }
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+  res.set("Content-Disposition", `attachment; filename="${reportType}.xlsx"`);
+  res.set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.send(buf);
+});
+
+// ── Revision comparison ──────────────────────────────────────────────────────
+// Diff two estimate revisions (A vs B), highlighting added / removed / modified
+// line items plus price and quantity changes.
+router.get("/revision-comparison", (req, res) => {
+  const a = Number(req.query.a);
+  const b = Number(req.query.b);
+  if (!a || !b) return res.status(400).json({ error: "a and b revision ids are required" });
+  const result = buildRevisionComparison(a, b);
+  if (!result) return res.status(404).json({ error: "Revision not found" });
+  res.json(result);
 });
 
 // ── Templates ───────────────────────────────────────────────────────────────

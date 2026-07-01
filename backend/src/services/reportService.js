@@ -310,3 +310,79 @@ export function boqToRows(boq) {
   out.push({ "Item No.": "", Code: "", Description: "GRAND TOTAL", Unit: "", Quantity: "", "Unit Rate": "", Amount: boq.grandTotal, Remarks: "" });
   return out;
 }
+
+// ── Revision comparison ──────────────────────────────────────────────────────
+// Flatten a stored revision snapshot into a map keyed by module + line type +
+// catalog/description ref, capturing quantity, unit rate and amount so two
+// revisions can be diffed line by line.
+function flattenSnapshot(snapshot) {
+  const map = new Map();
+  const shape = {
+    module_materials: (r) => ({ qty: r.quantity, rate: r.unitPriceAtEntry, ref: `mat:${r.materialId}`, type: "Material" }),
+    module_labor: (r) => ({ qty: r.quantity, rate: r.hourlyRateAtEntry, ref: `lab:${r.specializationId}`, type: "Labor" }),
+    module_equipment: (r) => ({ qty: r.quantity, rate: r.unitPriceAtEntry, ref: `eqp:${r.equipmentId}`, type: "Equipment" }),
+    module_subcontract: (r) => ({ qty: 1, rate: r.cost, ref: `sub:${r.description}`, type: "Subcontract" }),
+    module_other_costs: (r) => ({ qty: 1, rate: r.cost, ref: `oth:${r.description}`, type: "Other" }),
+    module_assemblies: (r) => ({ qty: r.quantity, rate: r.unitCostAtEntry, ref: `asm:${r.assemblyId}`, type: "Assembly" }),
+  };
+  for (const entry of snapshot || []) {
+    const moduleName = entry.module?.name ?? `Module ${entry.module?.id ?? "?"}`;
+    for (const [table, mapper] of Object.entries(shape)) {
+      for (const row of entry.lines?.[table] ?? []) {
+        const f = mapper(row);
+        const key = `${moduleName}|${table}|${f.ref}`;
+        map.set(key, {
+          module: moduleName, type: f.type, ref: f.ref,
+          description: row.notes || row.description || f.ref,
+          quantity: f.qty, rate: f.rate, amount: (f.qty || 0) * (f.rate || 0),
+        });
+      }
+    }
+  }
+  return map;
+}
+
+// Compare two estimate revisions (A vs B). Returns added / removed / modified
+// line items, flagging price changes and quantity changes, plus total deltas.
+export function buildRevisionComparison(revAId, revBId) {
+  const revA = db.prepare("SELECT * FROM estimate_revisions WHERE id = ?").get(revAId);
+  const revB = db.prepare("SELECT * FROM estimate_revisions WHERE id = ?").get(revBId);
+  if (!revA || !revB) return null;
+
+  const parse = (s) => { try { return JSON.parse(s); } catch { return null; } };
+  const mapA = flattenSnapshot(parse(revA.snapshot));
+  const mapB = flattenSnapshot(parse(revB.snapshot));
+
+  const added = [], removed = [], modified = [];
+  for (const [key, b] of mapB) {
+    if (!mapA.has(key)) { added.push(b); continue; }
+    const a = mapA.get(key);
+    const priceChanged = Math.abs((a.rate || 0) - (b.rate || 0)) > 1e-6;
+    const qtyChanged = Math.abs((a.quantity || 0) - (b.quantity || 0)) > 1e-6;
+    if (priceChanged || qtyChanged) {
+      modified.push({
+        module: b.module, type: b.type, description: b.description,
+        quantityA: a.quantity, quantityB: b.quantity,
+        rateA: a.rate, rateB: b.rate,
+        amountA: a.amount, amountB: b.amount, amountDelta: b.amount - a.amount,
+        priceChange: priceChanged, quantityChange: qtyChanged,
+      });
+    }
+  }
+  for (const [key, a] of mapA) if (!mapB.has(key)) removed.push(a);
+
+  const totalsA = parse(revA.totals) || {};
+  const totalsB = parse(revB.totals) || {};
+  const grandA = totalsA.waterfall?.finalTenderPrice ?? totalsA.waterfall?.directCost ?? 0;
+  const grandB = totalsB.waterfall?.finalTenderPrice ?? totalsB.waterfall?.directCost ?? 0;
+
+  return {
+    revisionA: { id: revA.id, revisionNumber: revA.revisionNumber, note: revA.note, createdAt: revA.createdAt, grandTotal: grandA },
+    revisionB: { id: revB.id, revisionNumber: revB.revisionNumber, note: revB.note, createdAt: revB.createdAt, grandTotal: grandB },
+    added, removed, modified,
+    summary: {
+      addedCount: added.length, removedCount: removed.length, modifiedCount: modified.length,
+      grandTotalDelta: grandB - grandA,
+    },
+  };
+}
