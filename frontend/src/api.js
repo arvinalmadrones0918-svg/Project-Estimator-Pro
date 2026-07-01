@@ -80,6 +80,7 @@ export const api = {
     create: (data) => request("/modules", { method: "POST", body: JSON.stringify(data) }),
     update: (id, data) => request(`/modules/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id) => request(`/modules/${id}`, { method: "DELETE" }),
+    duplicate: (id) => request(`/modules/${id}/duplicate`, { method: "POST" }),
 
     addMaterial: (id, data) => request(`/modules/${id}/materials`, { method: "POST", body: JSON.stringify(data) }),
     updateMaterial: (id, lineId, data) =>

@@ -25,11 +25,11 @@ const INCLUDE_TYPES = [
 
 const PAGE_SIZES = ["A4", "Letter", "Legal"];
 
-export default function ReportsPage() {
+export default function ReportsPage({ initialProjectId } = {}) {
   const [types, setTypes] = useState([]);
   const [projects, setProjects] = useState([]);
   const [reportType, setReportType] = useState("boq");
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(initialProjectId ? String(initialProjectId) : "");
   const [groupBy, setGroupBy] = useState("wbs");
   const [useMarkup, setUseMarkup] = useState(true);
   const [include, setInclude] = useState(() => Object.fromEntries(INCLUDE_TYPES.map((t) => [t.key, true])));
@@ -44,7 +44,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     api.reports.types().then(setTypes).catch((e) => setError(e.message));
-    api.projects.list().then((p) => { setProjects(p); if (p.length) setProjectId(String(p[0].id)); }).catch(() => {});
+    api.projects.list().then((p) => { setProjects(p); if (p.length && !projectId) setProjectId(String(initialProjectId || p[0].id)); }).catch(() => {});
     api.reports.templates().then(setTemplates).catch(() => {});
   }, []);
 

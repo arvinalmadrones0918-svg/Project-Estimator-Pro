@@ -127,6 +127,18 @@ describe("Calculation engine", () => {
     expect(res.body.materialCost).toBeCloseTo(60, 2); // 3 × 20
     expect(res.body.directCost).toBeCloseTo(60, 2);
   });
+
+  test("duplicating a work item copies its line items and cost", async () => {
+    const proj = await request(app).post("/api/projects").send({ name: "Dup Calc" });
+    const mod = await request(app).post("/api/modules").send({ name: "Slab", projectId: proj.body.id });
+    const mat = await request(app).post("/api/materials").send({ name: "Concrete", category: "Civil", unit: "m3", unitPrice: 15 });
+    await request(app).post(`/api/modules/${mod.body.id}/materials`).send({ materialId: mat.body.id, quantity: 2 });
+    const dup = await request(app).post(`/api/modules/${mod.body.id}/duplicate`);
+    expect(dup.status).toBe(201);
+    expect(dup.body.name).toBe("Slab (Copy)");
+    const calc = await request(app).get(`/api/estimate/module/${dup.body.id}/calculate`);
+    expect(calc.body.materialCost).toBeCloseTo(30, 2); // 2 × 15, copied
+  });
 });
 
 // ── API behaviour ───────────────────────────────────────────────────────────

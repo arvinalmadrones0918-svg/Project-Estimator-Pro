@@ -221,6 +221,46 @@ router.delete("/:id", (req, res) => {
   res.status(204).end();
 });
 
+// Deep-copy a work item: the module row plus every line item (with their
+// frozen price snapshots), so the duplicate's cost matches the original.
+const MODULE_LINE_TABLES = [
+  { table: "module_materials", cols: ["materialId", "quantity", "unitPriceAtEntry", "notes", "sortOrder", "markup", "status"] },
+  { table: "module_labor", cols: ["specializationId", "quantity", "hourlyRateAtEntry", "notes", "sortOrder", "markup", "status"] },
+  { table: "module_equipment", cols: ["equipmentId", "quantity", "unitPriceAtEntry", "notes", "sortOrder", "markup", "status"] },
+  { table: "module_subcontract", cols: ["description", "cost", "notes", "sortOrder", "markup", "status", "code", "category", "supplier", "unit"] },
+  { table: "module_other_costs", cols: ["description", "cost", "notes", "sortOrder", "markup", "status", "code", "category", "supplier", "unit"] },
+  { table: "module_assemblies", cols: ["assemblyId", "quantity", "unitCostAtEntry", "notes", "sortOrder", "markup", "status"] },
+  { table: "module_upa", cols: ["upaId", "quantity", "unitRateAtEntry", "matCostAtEntry", "laborCostAtEntry", "equipCostAtEntry", "subCostAtEntry", "otherCostAtEntry", "notes", "sortOrder", "markup", "status"] },
+];
+
+router.post("/:id/duplicate", (req, res) => {
+  const id = Number(req.params.id);
+  const src = db.prepare("SELECT * FROM work_modules WHERE id = ? AND deletedAt IS NULL").get(id);
+  if (!src) return res.status(404).json({ error: "Not found" });
+  db.exec("BEGIN");
+  try {
+    const result = db.prepare(
+      `INSERT INTO work_modules (name, description, projectId, wbsCategoryId, wbsSubcategoryId, sortOrder, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+    ).run(`${src.name} (Copy)`, src.description, src.projectId, src.wbsCategoryId, src.wbsSubcategoryId, src.sortOrder);
+    const newId = result.lastInsertRowid;
+    for (const { table, cols } of MODULE_LINE_TABLES) {
+      // Some columns (markup/status/code/...) only exist after later migrations;
+      // filter to the columns actually present in the table.
+      const present = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+      const use = cols.filter((c) => present.has(c));
+      const rows = db.prepare(`SELECT * FROM ${table} WHERE workModuleId = ?`).all(id);
+      const insert = db.prepare(`INSERT INTO ${table} (workModuleId, ${use.join(", ")}, createdAt, updatedAt) VALUES (?, ${use.map(() => "?").join(", ")}, datetime('now'), datetime('now'))`);
+      for (const row of rows) insert.run(newId, ...use.map((c) => row[c]));
+    }
+    db.exec("COMMIT");
+    res.status(201).json(db.prepare("SELECT * FROM work_modules WHERE id = ?").get(newId));
+  } catch (e) {
+    db.exec("ROLLBACK");
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Material lines ─────────────────────────────────────────────────────────
 router.post("/:id/materials", (req, res) => {
   const workModuleId = Number(req.params.id);
