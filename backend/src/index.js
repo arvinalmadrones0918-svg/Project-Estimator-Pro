@@ -30,14 +30,30 @@ import {
   addendaRouter, rfisRouter, documentsRouter, miscRouter,
 } from "./routes/tendering.js";
 import { makeCatalogRouter } from "./routes/catalogRouter.js";
+import settingsRouter from "./routes/settings.js";
+import adminRouter from "./routes/admin.js";
+import docsRouter from "./routes/docs.js";
+import { securityHeaders, rateLimiter, inputSanitizer, compression, requestLogger, errorHandler } from "./middleware/production.js";
 
 const app = express();
+app.disable("x-powered-by");
+app.use(securityHeaders);              // Phase 11: helmet-style headers
+app.use(compression());                // gzip large JSON responses
+app.use(requestLogger);                // request/latency logging
 app.use(cors());
 app.use(express.json({ limit: "20mb" }));
 
 // Phase 12: attach req.user from the bearer token when present. Non-blocking,
 // so all existing routes keep working unauthenticated (backward compatible).
 app.use(authOptional);
+app.use(inputSanitizer);               // Phase 11: strip XSS payloads from bodies
+app.use("/api", rateLimiter({ windowMs: 60_000, max: 600 }));
+
+// Health check + API documentation (Swagger UI + OpenAPI spec).
+app.get("/api/health", (req, res) => res.json({ status: "ok", uptime: process.uptime(), timestamp: new Date().toISOString() }));
+app.use("/api", docsRouter);
+app.use("/api/settings", settingsRouter);
+app.use("/api/admin", adminRouter);
 
 // Auth + multi-user enterprise routes.
 app.use("/api/auth", authRouter);
@@ -93,12 +109,7 @@ app.use("/api", (req, res) => res.status(404).json({ error: `Not found: ${req.me
 
 // Centralized error handler → JSON, never leaking a stack trace to clients.
 // Malformed JSON bodies and any thrown route error land here.
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-  const status = err.status || err.statusCode || (err.type === "entity.parse.failed" ? 400 : 500);
-  if (status >= 500) console.error("Unhandled error:", err.message);
-  res.status(status).json({ error: status === 400 ? "Invalid request body" : (err.expose ? err.message : "Internal server error") });
-});
+app.use(errorHandler);
 
 // Exported so Supertest (and other harnesses) can mount the app without
 // binding a port. The server only listens when run directly, not under test.

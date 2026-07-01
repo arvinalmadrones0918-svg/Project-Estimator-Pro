@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DB_PATH lets tests point at an isolated, throwaway database.
-const dbPath = process.env.DB_PATH || path.join(__dirname, "..", "data.db");
+export const dbPath = process.env.DB_PATH || path.join(__dirname, "..", "data.db");
 
 export const db = new DatabaseSync(dbPath);
 db.exec("PRAGMA foreign_keys = ON;");
@@ -1125,6 +1125,46 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_activity_log_category ON activity_log(category);
 `);
+
+// Phase 11 (Production): application settings (key/value) and backup history.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS backup_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fileName TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'manual',
+    sizeBytes INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    createdBy TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+// Seed default application settings once (system prefs, formats, units…).
+{
+  const DEFAULTS = {
+    systemName: "Project Estimator Pro",
+    companyLogo: "",
+    baseCurrency: "USD",
+    currencySymbol: "$",
+    defaultTaxRate: 12,
+    taxLabel: "VAT",
+    units: "metric",
+    dateFormat: "YYYY-MM-DD",
+    numberFormat: "1,234.56",
+    decimalPlaces: 2,
+    autoBackup: false,
+    autoBackupIntervalHours: 24,
+    theme: "system",
+  };
+  const has = db.prepare("SELECT 1 FROM app_settings WHERE key = ?");
+  const put = db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?)");
+  for (const [k, v] of Object.entries(DEFAULTS)) if (!has.get(k)) put.run(k, JSON.stringify(v));
+}
 
 // Seed the singleton company profile + a base currency + default tax once.
 if (!db.prepare("SELECT id FROM company_profile WHERE id = 1").get()) {

@@ -271,6 +271,24 @@ api.auth = {
   refresh: (refreshToken) => request("/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
 };
 
+// Phase 11 (Production): application settings, backups, import/export.
+api.settings = {
+  get: () => request("/settings"),
+  save: (data) => request("/settings", { method: "PUT", body: JSON.stringify(data) }),
+};
+api.admin = {
+  backups: () => request("/admin/backups"),
+  createBackup: (data) => request("/admin/backups", { method: "POST", body: JSON.stringify(data || {}) }),
+  restoreBackup: (id) => request(`/admin/backups/${id}/restore`, { method: "POST", body: JSON.stringify({ confirm: true }) }),
+  backupDownloadUrl: (id) => `/api/admin/backups/${id}/download`,
+  exportUrl: (scope, params) => `/api/admin/export/${scope}${qs({ ...params, download: "true" })}`,
+  export: (scope, params) => request(`/admin/export/${scope}${qs(params)}`),
+  import: (payload) => request("/admin/import", { method: "POST", body: JSON.stringify(payload) }),
+  health: () => request("/health"),
+  openapiUrl: () => "/api/openapi.json",
+  docsUrl: () => "/api/docs",
+};
+
 // Phase 10 (Enterprise): Organization — company, branches, departments,
 // business units, currencies, tax settings.
 api.organization = {

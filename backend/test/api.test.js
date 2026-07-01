@@ -440,3 +440,72 @@ describe("Enterprise platform", () => {
     expect(sec.body.some((a) => a.action === "login_failed")).toBe(true);
   });
 });
+
+// ── Phase 11: Production Release ─────────────────────────────────────────────
+
+describe("Production readiness", () => {
+  test("health check responds", async () => {
+    const res = await request(app).get("/api/health");
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("ok");
+  });
+
+  test("security headers are set", async () => {
+    const res = await request(app).get("/api/health");
+    expect(res.headers["x-content-type-options"]).toBe("nosniff");
+    expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
+  });
+
+  test("OpenAPI spec and Swagger UI are served", async () => {
+    const spec = await request(app).get("/api/openapi.json");
+    expect(spec.status).toBe(200);
+    expect(spec.body.openapi).toMatch(/^3\./);
+    expect(spec.body.info.title).toMatch(/Project Estimator Pro/);
+    const docs = await request(app).get("/api/docs");
+    expect(docs.status).toBe(200);
+    expect(docs.text).toMatch(/swagger-ui/i);
+  });
+
+  test("application settings are seeded and updatable", async () => {
+    const get = await request(app).get("/api/settings");
+    expect(get.status).toBe(200);
+    expect(get.body.baseCurrency).toBe("USD");
+    expect(get.body).toHaveProperty("dateFormat");
+    const put = await request(app).put("/api/settings").send({ defaultTaxRate: 15, units: "imperial" });
+    expect(put.body.defaultTaxRate).toBe(15);
+    expect(put.body.units).toBe("imperial");
+  });
+
+  test("database backup creates a history entry", async () => {
+    const res = await request(app).post("/api/admin/backups").send({ note: "test" });
+    expect(res.status).toBe(201);
+    expect(res.body.fileName).toMatch(/backup-.*\.db/);
+    expect(res.body.sizeBytes).toBeGreaterThan(0);
+    const list = await request(app).get("/api/admin/backups");
+    expect(list.body.some((b) => b.id === res.body.id)).toBe(true);
+  });
+
+  test("data export returns scoped JSON and import round-trips", async () => {
+    const exp = await request(app).get("/api/admin/export/organization");
+    expect(exp.status).toBe(200);
+    expect(exp.body.scope).toBe("organization");
+    expect(exp.body.tables).toHaveProperty("org_currencies");
+    // Import the same bundle back — insert-or-ignore keeps it safe.
+    const imp = await request(app).post("/api/admin/import").send({ tables: exp.body.tables });
+    expect(imp.status).toBe(200);
+    expect(imp.body).toHaveProperty("inserted");
+  });
+
+  test("unknown scope is rejected; database export includes core tables", async () => {
+    expect((await request(app).get("/api/admin/export/bogus")).status).toBe(400);
+    const db = await request(app).get("/api/admin/export/database");
+    expect(db.body.tables).toHaveProperty("projects");
+    expect(db.body.tables).toHaveProperty("app_settings");
+  });
+
+  test("global error handler returns clean JSON for malformed bodies", async () => {
+    const res = await request(app).post("/api/projects").set("Content-Type", "application/json").send("{ not json ");
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty("error");
+  });
+});

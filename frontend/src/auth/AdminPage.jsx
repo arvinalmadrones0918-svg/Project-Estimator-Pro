@@ -3,11 +3,16 @@ import { api } from "../api";
 import Modal from "../components/Modal";
 import ErrorBanner from "../components/ErrorBanner";
 import OrganizationPanel from "./OrganizationPanel";
+import { SettingsTab, BackupTab, DataTab, ApiDocsTab } from "./SystemPanel";
 
 const TABS = [
   { key: "users", label: "Users" },
   { key: "roles", label: "Roles & Permissions" },
   { key: "organization", label: "Organization" },
+  { key: "settings", label: "Settings" },
+  { key: "backup", label: "Backup" },
+  { key: "data", label: "Import / Export" },
+  { key: "apidocs", label: "API Docs" },
   { key: "audit", label: "Audit Trail" },
   { key: "security", label: "Security Logs" },
   { key: "system", label: "System Logs" },
@@ -29,6 +34,10 @@ export default function AdminPage() {
       {tab === "users" && <UsersTab setError={setError} />}
       {tab === "roles" && <RolesTab setError={setError} />}
       {tab === "organization" && <OrganizationPanel setError={setError} />}
+      {tab === "settings" && <SettingsTab setError={setError} />}
+      {tab === "backup" && <BackupTab setError={setError} />}
+      {tab === "data" && <DataTab setError={setError} />}
+      {tab === "apidocs" && <ApiDocsTab />}
       {tab === "audit" && <LogTab loader={() => api.enterprise.audit({ limit: 200 })} columns={["createdAt", "userName", "action", "entityType", "oldValue", "newValue", "ipAddress", "userAgent"]} setError={setError} />}
       {tab === "security" && <LogTab loader={() => api.enterprise.securityLogs()} columns={["createdAt", "userName", "action", "ipAddress", "userAgent"]} setError={setError} />}
       {tab === "system" && <LogTab loader={() => api.enterprise.systemLogs()} columns={["createdAt", "userName", "action", "entityType", "entityId", "detail"]} setError={setError} />}

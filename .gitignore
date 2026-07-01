@@ -10,3 +10,4 @@ frontend/dist/
 # Test artifacts
 coverage/
 **/coverage/
+backend/backups/
