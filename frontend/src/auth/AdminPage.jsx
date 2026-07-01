@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import Modal from "../components/Modal";
 import ErrorBanner from "../components/ErrorBanner";
+import OrganizationPanel from "./OrganizationPanel";
 
 const TABS = [
   { key: "users", label: "Users" },
   { key: "roles", label: "Roles & Permissions" },
-  { key: "audit", label: "Audit Log" },
+  { key: "organization", label: "Organization" },
+  { key: "audit", label: "Audit Trail" },
+  { key: "security", label: "Security Logs" },
+  { key: "system", label: "System Logs" },
   { key: "logins", label: "Login History" },
   { key: "approvals", label: "Approval History" },
 ];
@@ -24,8 +28,11 @@ export default function AdminPage() {
       <nav className="proc-tabs">{TABS.map((t) => <button key={t.key} className={tab === t.key ? "active" : ""} onClick={() => setTab(t.key)}>{t.label}</button>)}</nav>
       {tab === "users" && <UsersTab setError={setError} />}
       {tab === "roles" && <RolesTab setError={setError} />}
-      {tab === "audit" && <LogTab loader={() => api.enterprise.activity({ limit: 200 })} columns={["createdAt", "userName", "action", "entityType", "entityId", "detail"]} setError={setError} />}
-      {tab === "logins" && <LogTab loader={() => api.enterprise.loginHistory()} columns={["createdAt", "userName", "action", "detail"]} setError={setError} />}
+      {tab === "organization" && <OrganizationPanel setError={setError} />}
+      {tab === "audit" && <LogTab loader={() => api.enterprise.audit({ limit: 200 })} columns={["createdAt", "userName", "action", "entityType", "oldValue", "newValue", "ipAddress", "userAgent"]} setError={setError} />}
+      {tab === "security" && <LogTab loader={() => api.enterprise.securityLogs()} columns={["createdAt", "userName", "action", "ipAddress", "userAgent"]} setError={setError} />}
+      {tab === "system" && <LogTab loader={() => api.enterprise.systemLogs()} columns={["createdAt", "userName", "action", "entityType", "entityId", "detail"]} setError={setError} />}
+      {tab === "logins" && <LogTab loader={() => api.enterprise.loginHistory()} columns={["createdAt", "userName", "action", "ipAddress", "detail"]} setError={setError} />}
       {tab === "approvals" && <LogTab loader={() => api.enterprise.approvalHistory()} columns={["createdAt", "projectName", "level", "status", "approverName", "comment"]} setError={setError} />}
     </div>
   );
@@ -70,7 +77,8 @@ function UsersTab({ setError }) {
 const USER_FIELDS = [
   { key: "employeeId", label: "Employee ID" }, { key: "username", label: "Username" },
   { key: "firstName", label: "First Name" }, { key: "lastName", label: "Last Name" },
-  { key: "position", label: "Position" }, { key: "department", label: "Department" },
+  { key: "position", label: "Position" }, { key: "designation", label: "Designation" },
+  { key: "department", label: "Department" }, { key: "company", label: "Company" },
   { key: "office", label: "Office" }, { key: "email", label: "Email", type: "email" },
   { key: "mobile", label: "Mobile" },
 ];

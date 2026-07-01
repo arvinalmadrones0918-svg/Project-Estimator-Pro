@@ -19,6 +19,7 @@ import excelRouter from "./routes/excel.js";
 import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
 import enterpriseRouter from "./routes/enterprise.js";
+import organizationRouter from "./routes/organization.js";
 import { authOptional } from "./services/auth.js";
 import {
   costControlRouter, purchaseOrdersRouter, subcontractsRouter,
@@ -42,6 +43,7 @@ app.use(authOptional);
 app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/enterprise", enterpriseRouter);
+app.use("/api/organization", organizationRouter);
 app.use("/api/cost-control", costControlRouter);
 app.use("/api/purchase-orders", purchaseOrdersRouter);
 app.use("/api/subcontracts", subcontractsRouter);

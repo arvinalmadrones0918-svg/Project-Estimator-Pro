@@ -268,6 +268,22 @@ api.auth = {
   changePassword: (data) => request("/auth/change-password", { method: "POST", body: JSON.stringify(data) }),
   forgotPassword: (username) => request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ username }) }),
   resetPassword: (data) => request("/auth/reset-password", { method: "POST", body: JSON.stringify(data) }),
+  refresh: (refreshToken) => request("/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
+};
+
+// Phase 10 (Enterprise): Organization — company, branches, departments,
+// business units, currencies, tax settings.
+api.organization = {
+  company: () => request("/organization/company"),
+  saveCompany: (data) => request("/organization/company", { method: "PUT", body: JSON.stringify(data) }),
+  branches: () => request("/organization/branches"),
+  departments: () => request("/organization/departments"),
+  businessUnits: () => request("/organization/business-units"),
+  currencies: () => request("/organization/currencies"),
+  taxSettings: () => request("/organization/tax-settings"),
+  create: (kind, data) => request(`/organization/${kind}`, { method: "POST", body: JSON.stringify(data) }),
+  update: (kind, id, data) => request(`/organization/${kind}/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (kind, id) => request(`/organization/${kind}/${id}`, { method: "DELETE" }),
 };
 
 api.users = {
@@ -297,6 +313,9 @@ api.enterprise = {
   activity: (params) => request(`/enterprise/activity${qs(params)}`),
   loginHistory: () => request("/enterprise/activity/logins"),
   approvalHistory: () => request("/enterprise/activity/approvals"),
+  audit: (params) => request(`/enterprise/audit${qs(params)}`),
+  securityLogs: () => request("/enterprise/activity/security"),
+  systemLogs: () => request("/enterprise/activity/system"),
 };
 
 api.analytics = {

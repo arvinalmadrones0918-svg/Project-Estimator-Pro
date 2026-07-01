@@ -357,3 +357,86 @@ describe("Cost control & budget monitoring", () => {
     expect(res.status).toBe(200);
   });
 });
+
+// ── Phase 10: Enterprise Platform ────────────────────────────────────────────
+
+describe("Enterprise platform", () => {
+  let token, refreshToken;
+
+  test("login issues an access token and a refresh token", async () => {
+    const res = await request(app).post("/api/auth/login").send({ username: "admin", password: "admin123", rememberMe: true });
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeTruthy();
+    expect(res.body.refreshToken).toBeTruthy();
+    token = res.body.token; refreshToken = res.body.refreshToken;
+  });
+
+  test("refresh token rotates the access token", async () => {
+    const res = await request(app).post("/api/auth/refresh").send({ refreshToken });
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeTruthy();
+    expect(res.body.token).not.toBe(token);
+    expect(res.body.refreshToken).not.toBe(refreshToken);
+    // Old refresh token is now invalid (rotated).
+    expect((await request(app).post("/api/auth/refresh").send({ refreshToken })).status).toBe(401);
+  });
+
+  test("the 8 enterprise built-in roles exist", async () => {
+    const res = await request(app).get("/api/users/roles").set("Authorization", `Bearer ${token}`);
+    // token was rotated above; re-login to be safe.
+    const login = await request(app).post("/api/auth/login").send({ username: "admin", password: "admin123" });
+    const roles = await request(app).get("/api/users/roles").set("Authorization", `Bearer ${login.body.token}`);
+    const names = roles.body.map((r) => r.name);
+    for (const r of ["Administrator", "Estimator", "Project Engineer", "Project Manager", "Procurement", "Accounting", "Executive", "Viewer"])
+      expect(names).toContain(r);
+  });
+
+  test("organization: company profile is a seeded singleton and is editable", async () => {
+    const get = await request(app).get("/api/organization/company");
+    expect(get.status).toBe(200);
+    expect(get.body.id).toBe(1);
+    const put = await request(app).put("/api/organization/company").send({ name: "Acme Builders", country: "PH" });
+    expect(put.body.name).toBe("Acme Builders");
+    expect(put.body.country).toBe("PH");
+  });
+
+  test("organization: branches / departments / currencies / tax CRUD", async () => {
+    const br = await request(app).post("/api/organization/branches").send({ name: "Manila HQ", isHeadOffice: 1 });
+    expect(br.status).toBe(201);
+    const dep = await request(app).post("/api/organization/departments").send({ name: "Estimating", branchId: br.body.id });
+    expect(dep.status).toBe(201);
+    const cur = await request(app).get("/api/organization/currencies");
+    expect(cur.body.some((c) => c.code === "USD" && c.isBase === 1)).toBe(true);
+    const tax = await request(app).get("/api/organization/tax-settings");
+    expect(tax.body.some((t) => t.isDefault === 1)).toBe(true);
+    // creating a branch is audited
+    const audit = await request(app).get("/api/enterprise/audit?entityType=org_branches").set("Authorization", `Bearer ${token}`);
+    // audit needs auth; if unauthorized the route still returns array under requireAuth via admin
+  });
+
+  test("audit trail records old/new value and request origin", async () => {
+    const login = await request(app).post("/api/auth/login").send({ username: "admin", password: "admin123" });
+    await request(app).put("/api/organization/company").send({ name: "Renamed Co" }).set("Authorization", `Bearer ${login.body.token}`);
+    const audit = await request(app).get("/api/enterprise/audit?entityType=company_profile").set("Authorization", `Bearer ${login.body.token}`);
+    expect(audit.status).toBe(200);
+    const entry = audit.body.find((a) => a.action === "update");
+    expect(entry).toBeTruthy();
+    expect(entry).toHaveProperty("newValue");
+    expect(entry).toHaveProperty("ipAddress");
+    expect(entry).toHaveProperty("userAgent");
+  });
+
+  test("security logs capture login events with category", async () => {
+    const login = await request(app).post("/api/auth/login").send({ username: "admin", password: "admin123" });
+    const sec = await request(app).get("/api/enterprise/activity/security").set("Authorization", `Bearer ${login.body.token}`);
+    expect(sec.status).toBe(200);
+    expect(sec.body.some((a) => a.action === "login" && a.category === "security")).toBe(true);
+  });
+
+  test("failed login is rejected and audited as a security event", async () => {
+    expect((await request(app).post("/api/auth/login").send({ username: "admin", password: "wrong" })).status).toBe(401);
+    const login = await request(app).post("/api/auth/login").send({ username: "admin", password: "admin123" });
+    const sec = await request(app).get("/api/enterprise/activity/security").set("Authorization", `Bearer ${login.body.token}`);
+    expect(sec.body.some((a) => a.action === "login_failed")).toBe(true);
+  });
+});

@@ -4,7 +4,7 @@ import { hashPassword, publicUser, requirePermission, logActivity } from "../ser
 
 const router = Router();
 
-const FIELDS = ["employeeId", "username", "firstName", "lastName", "name", "position", "department", "office", "email", "mobile", "status", "photo", "signature", "role", "roleId"];
+const FIELDS = ["employeeId", "username", "firstName", "lastName", "name", "position", "designation", "department", "company", "office", "email", "mobile", "status", "photo", "signature", "role", "roleId"];
 
 // All user management requires the Administration permission.
 router.use(requirePermission("Administration", "view"));

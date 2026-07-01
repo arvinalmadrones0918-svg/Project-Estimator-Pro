@@ -1064,6 +1064,81 @@ ensureColumn("users", "failedLogins", "failedLogins INTEGER NOT NULL DEFAULT 0")
 ensureColumn("users", "lockedUntil", "lockedUntil TEXT");
 ensureColumn("users", "lastLoginAt", "lastLoginAt TEXT");
 ensureColumn("users", "roleId", "roleId INTEGER REFERENCES roles(id)");
+ensureColumn("users", "company", "company TEXT");
+ensureColumn("users", "designation", "designation TEXT");
+
+// Phase 10 (Enterprise): richer audit trail — old/new value, IP and browser.
+ensureColumn("activity_log", "oldValue", "oldValue TEXT");
+ensureColumn("activity_log", "newValue", "newValue TEXT");
+ensureColumn("activity_log", "ipAddress", "ipAddress TEXT");
+ensureColumn("activity_log", "userAgent", "userAgent TEXT");
+ensureColumn("activity_log", "category", "category TEXT NOT NULL DEFAULT 'general'");
+
+// Refresh-token support for sessions (a long-lived companion to the access
+// token; rotating it issues a fresh access token).
+ensureColumn("sessions", "refreshToken", "refreshToken TEXT");
+ensureColumn("sessions", "refreshExpiresAt", "refreshExpiresAt TEXT");
+
+// Phase 10 (Enterprise): Organization — company profile, branches, departments,
+// business units, currencies and tax settings.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS company_profile (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    name TEXT NOT NULL DEFAULT 'My Company',
+    legalName TEXT, registrationNo TEXT, taxId TEXT,
+    address TEXT, city TEXT, country TEXT,
+    phone TEXT, email TEXT, website TEXT, logo TEXT,
+    baseCurrency TEXT NOT NULL DEFAULT 'USD',
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS org_branches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL, code TEXT, address TEXT, city TEXT, country TEXT,
+    phone TEXT, manager TEXT, isHeadOffice INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS org_departments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL, code TEXT, branchId INTEGER REFERENCES org_branches(id),
+    head TEXT, status TEXT NOT NULL DEFAULT 'active',
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS org_business_units (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL, code TEXT, manager TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS org_currencies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL, name TEXT, symbol TEXT,
+    exchangeRate REAL NOT NULL DEFAULT 1,
+    isBase INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active'
+  );
+  CREATE TABLE IF NOT EXISTS org_tax_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL, taxType TEXT, ratePct REAL NOT NULL DEFAULT 0,
+    isDefault INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active'
+  );
+  CREATE INDEX IF NOT EXISTS idx_activity_log_category ON activity_log(category);
+`);
+
+// Seed the singleton company profile + a base currency + default tax once.
+if (!db.prepare("SELECT id FROM company_profile WHERE id = 1").get()) {
+  db.prepare("INSERT INTO company_profile (id, name, baseCurrency) VALUES (1, 'Project Estimator Pro', 'USD')").run();
+}
+if (db.prepare("SELECT COUNT(*) AS c FROM org_currencies").get().c === 0) {
+  const insC = db.prepare("INSERT INTO org_currencies (code, name, symbol, exchangeRate, isBase) VALUES (?, ?, ?, ?, ?)");
+  insC.run("USD", "US Dollar", "$", 1, 1);
+  insC.run("EUR", "Euro", "€", 0.92, 0);
+  insC.run("PHP", "Philippine Peso", "₱", 56, 0);
+}
+if (db.prepare("SELECT COUNT(*) AS c FROM org_tax_settings").get().c === 0) {
+  db.prepare("INSERT INTO org_tax_settings (name, taxType, ratePct, isDefault) VALUES ('Standard VAT', 'VAT', 12, 1)").run();
+}
 
 // Estimate workflow status, independent of the active/archived status column.
 ensureColumn("projects", "workflowStatus", "workflowStatus TEXT NOT NULL DEFAULT 'draft'");
@@ -1438,6 +1513,16 @@ ensureColumn("purchase_orders", "approvalStatus", "approvalStatus TEXT NOT NULL 
     const ins = db.prepare("INSERT INTO roles (name, permissions, isBuiltIn) VALUES (?, ?, 1)");
     for (const [name, perms] of ROLES) ins.run(name, JSON.stringify(perms));
   }
+
+  // Ensure the enterprise built-in roles exist (idempotent, also on upgrades).
+  const ENTERPRISE_ROLES = [
+    ["Administrator", full], ["Estimator", estimator], ["Project Engineer", estimator],
+    ["Project Manager", approver], ["Procurement", { ...viewOnly, Procurement: ["view", "edit"] }],
+    ["Accounting", { ...viewOnly, Reports: ["view", "edit"] }],
+    ["Executive", { ...viewOnly, Reports: ["view", "edit", "approve"] }], ["Viewer", viewOnly],
+  ];
+  const ensureRole = db.prepare("INSERT OR IGNORE INTO roles (name, permissions, isBuiltIn) VALUES (?, ?, 1)");
+  for (const [name, perms] of ENTERPRISE_ROLES) ensureRole.run(name, JSON.stringify(perms));
 
   // Seed the admin user with a scrypt-hashed password (admin / admin123).
   const adminRoleId = db.prepare("SELECT id FROM roles WHERE name = 'Administrator'").get()?.id ?? null;

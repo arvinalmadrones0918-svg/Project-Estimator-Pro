@@ -171,4 +171,27 @@ router.get("/activity/approvals", (req, res) => {
   res.json(db.prepare(`SELECT a.*, p.name AS projectName FROM approvals a JOIN projects p ON p.id = a.projectId ORDER BY a.id DESC LIMIT 200`).all());
 });
 
+// Full audit trail: action, entity, old/new value, user, date, IP and browser.
+router.get("/audit", (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 200, 2000);
+  const { entityType, entityId, category } = req.query;
+  const where = [], params = [];
+  if (entityType) { where.push("entityType = ?"); params.push(entityType); }
+  if (entityId) { where.push("entityId = ?"); params.push(Number(entityId)); }
+  if (category) { where.push("category = ?"); params.push(category); }
+  const sql = `SELECT id, userId, userName, action, entityType, entityId, detail, oldValue, newValue, ipAddress, userAgent, category, createdAt
+               FROM activity_log ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY id DESC LIMIT ?`;
+  res.json(db.prepare(sql).all(...params, limit));
+});
+
+// Security logs: authentication and permission events only.
+router.get("/activity/security", (req, res) => {
+  res.json(db.prepare("SELECT * FROM activity_log WHERE category = 'security' ORDER BY id DESC LIMIT 200").all());
+});
+
+// System logs: non-security activity (creates/updates/deletes/workflow).
+router.get("/activity/system", (req, res) => {
+  res.json(db.prepare("SELECT * FROM activity_log WHERE category != 'security' ORDER BY id DESC LIMIT 200").all());
+});
+
 export default router;

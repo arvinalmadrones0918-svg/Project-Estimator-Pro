@@ -2,7 +2,7 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { db } from "../db.js";
 import {
-  hashPassword, verifyPassword, createSession, destroySession,
+  hashPassword, verifyPassword, createSession, destroySession, refreshSession,
   logActivity, publicUser, requireAuth,
 } from "../services/auth.js";
 
@@ -28,14 +28,23 @@ router.post("/login", (req, res) => {
     const failed = (user.failedLogins || 0) + 1;
     const lockedUntil = failed >= MAX_FAILED ? new Date(Date.now() + LOCK_MINUTES * 60_000).toISOString() : null;
     db.prepare("UPDATE users SET failedLogins = ?, lockedUntil = ? WHERE id = ?").run(failed, lockedUntil, user.id);
-    logActivity(user, "login_failed", "user", user.id, `attempt ${failed}`);
+    logActivity(user, "login_failed", "user", user.id, `attempt ${failed}`, { ipAddress: req.ipAddress, userAgent: req.userAgent });
     return res.status(401).json({ error: lockedUntil ? "Too many failed attempts. Account locked for 15 minutes." : "Invalid credentials" });
   }
 
   db.prepare("UPDATE users SET failedLogins = 0, lockedUntil = NULL, lastLoginAt = datetime('now') WHERE id = ?").run(user.id);
-  const { token, expiresAt } = createSession(user.id, !!rememberMe);
-  logActivity(user, "login", "user", user.id, null);
-  res.json({ token, expiresAt, user: publicUser(db.prepare("SELECT * FROM users WHERE id = ?").get(user.id)) });
+  const { token, expiresAt, refreshToken, refreshExpiresAt } = createSession(user.id, !!rememberMe);
+  logActivity(user, "login", "user", user.id, null, { ipAddress: req.ipAddress, userAgent: req.userAgent });
+  res.json({ token, expiresAt, refreshToken, refreshExpiresAt, user: publicUser(db.prepare("SELECT * FROM users WHERE id = ?").get(user.id)) });
+});
+
+// Refresh the access token using a refresh token (rotates both).
+router.post("/refresh", (req, res) => {
+  const { refreshToken } = req.body;
+  const result = refreshSession(refreshToken);
+  if (!result) return res.status(401).json({ error: "Invalid or expired refresh token" });
+  logActivity(result.user, "token_refresh", "user", result.user.id, null, { ipAddress: req.ipAddress, userAgent: req.userAgent });
+  res.json({ token: result.token, expiresAt: result.expiresAt, refreshToken: result.refreshToken, refreshExpiresAt: result.refreshExpiresAt, user: publicUser(result.user) });
 });
 
 router.post("/logout", (req, res) => {
