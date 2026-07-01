@@ -11,7 +11,9 @@ export default function AnimatedNumber({ value, format = (v) => v.toLocaleString
     const to = Number(value) || 0;
     const start = performance.now();
     function tick(now) {
-      const t = Math.min(1, (now - start) / duration);
+      // Clamp to [0,1]: guards against a rAF timestamp whose clock base differs
+      // from performance.now(), which could otherwise flash a wrong value.
+      const t = Math.max(0, Math.min(1, (now - start) / duration));
       const eased = 1 - Math.pow(1 - t, 3);
       setDisplay(from + (to - from) * eased);
       if (t < 1) rafRef.current = requestAnimationFrame(tick);

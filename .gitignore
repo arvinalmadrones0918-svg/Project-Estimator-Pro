@@ -6,3 +6,7 @@ frontend/dist/
 /package.json
 /package-lock.json
 /verify_*.mjs
+
+# Test artifacts
+coverage/
+**/coverage/

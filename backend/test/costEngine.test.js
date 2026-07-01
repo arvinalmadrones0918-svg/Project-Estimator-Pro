@@ -1,4 +1,5 @@
-import { test } from "node:test";
+// Uses Jest's global `test`/`expect` is available, but these assertions use
+// node:assert (works under Jest) so the engine math stays framework-agnostic.
 import assert from "node:assert/strict";
 import { applyIndirectCosts, __upaResourceAmountForTest, __grItemBaseAmountForTest } from "../src/services/costEngine.js";
 import { currentBillingNet } from "../src/services/costControl.js";

@@ -96,7 +96,13 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: status === 400 ? "Invalid request body" : (err.expose ? err.message : "Internal server error") });
 });
 
-const port = process.env.PORT || 4000;
-app.listen(port, () => {
-  console.log(`Estimator backend listening on port ${port}`);
-});
+// Exported so Supertest (and other harnesses) can mount the app without
+// binding a port. The server only listens when run directly, not under test.
+export default app;
+
+if (process.env.NODE_ENV !== "test") {
+  const port = process.env.PORT || 4000;
+  app.listen(port, () => {
+    console.log(`Estimator backend listening on port ${port}`);
+  });
+}

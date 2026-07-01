@@ -4,7 +4,8 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, "..", "data.db");
+// DB_PATH lets tests point at an isolated, throwaway database.
+const dbPath = process.env.DB_PATH || path.join(__dirname, "..", "data.db");
 
 export const db = new DatabaseSync(dbPath);
 db.exec("PRAGMA foreign_keys = ON;");
