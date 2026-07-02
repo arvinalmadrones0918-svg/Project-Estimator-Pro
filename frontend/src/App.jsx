@@ -12,6 +12,7 @@ import ReportsPage from "./reports/ReportsPage";
 import TenderingPage from "./tendering/TenderingPage";
 import GeneralRequirementsPage from "./gr/GeneralRequirementsPage";
 import CostAssembliesPage from "./assemblies/CostAssembliesPage";
+import MaterialLibraryPage from "./materials/MaterialLibraryPage";
 import ExcelPage from "./excel/ExcelPage";
 import CostControlPage from "./costcontrol/CostControlPage";
 import ExecutiveDashboard from "./analytics/ExecutiveDashboard";
@@ -33,6 +34,12 @@ const CATALOG_TABS = [
   {
     key: "cat-materials",
     label: "Materials",
+    component: MaterialLibraryPage,
+  },
+  {
+    key: "cat-materials-basic",
+    label: "Materials (basic)",
+    hidden: true,
     component: () => (
       <CatalogPage
         title="Materials Catalog"

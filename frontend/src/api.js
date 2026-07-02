@@ -50,7 +50,8 @@ export const api = {
     removeSubcategory: (id) => request(`/wbs/subcategories/${id}`, { method: "DELETE" }),
   },
   materials: {
-    list: () => request("/materials"),
+    list: (params) => request(`/materials${qs(params)}`),
+    filters: () => request("/materials/filters"),
     create: (data) => request("/materials", { method: "POST", body: JSON.stringify(data) }),
     update: (id, data) => request(`/materials/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id) => request(`/materials/${id}`, { method: "DELETE" }),

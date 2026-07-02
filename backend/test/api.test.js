@@ -509,3 +509,41 @@ describe("Production readiness", () => {
     expect(res.body).toHaveProperty("error");
   });
 });
+
+// ── Master Materials Library ─────────────────────────────────────────────────
+
+describe("Master Materials Library", () => {
+  test("ships seeded with 500+ categorized materials", async () => {
+    const res = await request(app).get("/api/materials?meta=true&limit=1");
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBeGreaterThanOrEqual(500);
+  });
+
+  test("supports search and category filters", async () => {
+    const res = await request(app).get("/api/materials?search=Concrete&category=Civil%20Works&meta=true");
+    expect(res.status).toBe(200);
+    expect(res.body.items.every((m) => m.category === "Civil Works")).toBe(true);
+    expect(res.body.items.some((m) => /concrete/i.test(m.name))).toBe(true);
+  });
+
+  test("filters endpoint returns categories/subcategories/suppliers/units", async () => {
+    const res = await request(app).get("/api/materials/filters");
+    expect(res.body.categories.length).toBeGreaterThanOrEqual(11);
+    expect(res.body.units.length).toBeGreaterThan(0);
+  });
+
+  test("create + update carry the extended library fields", async () => {
+    const created = await request(app).post("/api/materials").send({
+      name: "Test Beam", category: "Structural Steel", unit: "kg", unitPrice: 1.2,
+      code: "TST-001", brand: "SteelAsia", manufacturer: "SteelAsia", specification: "ASTM A36",
+      preferredSupplier: "Acme Steel", wasteFactor: 5, countryOfOrigin: "Philippines",
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.brand).toBe("SteelAsia");
+    expect(created.body.wasteFactor).toBe(5);
+    const updated = await request(app).put(`/api/materials/${created.body.id}`).send({ leadTime: "14 days", unitPrice: 1.5 });
+    expect(updated.body.leadTime).toBe("14 days");
+    expect(updated.body.unitPrice).toBe(1.5);
+    expect(updated.body.brand).toBe("SteelAsia"); // preserved
+  });
+});

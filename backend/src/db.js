@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { seedMaterialLibrary } from "./seedMaterialLibrary.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DB_PATH lets tests point at an isolated, throwaway database.
@@ -272,6 +273,24 @@ ensureColumn("wbs_subcategories", "code", "code TEXT");
 
 ensureColumn("materials", "code", "code TEXT");
 ensureColumn("materials", "isActive", "isActive INTEGER NOT NULL DEFAULT 1");
+// Master Materials Library — enterprise catalog fields (additive).
+ensureColumn("materials", "supplier", "supplier TEXT");
+ensureColumn("materials", "description", "description TEXT");
+ensureColumn("materials", "subcategory", "subcategory TEXT");
+ensureColumn("materials", "manufacturer", "manufacturer TEXT");
+ensureColumn("materials", "brand", "brand TEXT");
+ensureColumn("materials", "model", "model TEXT");
+ensureColumn("materials", "specification", "specification TEXT");
+ensureColumn("materials", "standard", "standard TEXT");
+ensureColumn("materials", "currency", "currency TEXT");
+ensureColumn("materials", "preferredSupplier", "preferredSupplier TEXT");
+ensureColumn("materials", "leadTime", "leadTime TEXT");
+ensureColumn("materials", "countryOfOrigin", "countryOfOrigin TEXT");
+ensureColumn("materials", "minOrderQty", "minOrderQty REAL");
+ensureColumn("materials", "wasteFactor", "wasteFactor REAL NOT NULL DEFAULT 0");
+ensureColumn("materials", "weight", "weight REAL");
+ensureColumn("materials", "density", "density REAL");
+ensureColumn("materials", "notes", "notes TEXT");
 ensureTimestampColumns("materials");
 
 ensureColumn("labor_specializations", "code", "code TEXT");
@@ -1669,3 +1688,6 @@ if (wbsCategoryCount === 0) {
     });
   });
 }
+
+// Seed the Master Materials Library (500+ construction materials) on first init.
+seedMaterialLibrary(db);
