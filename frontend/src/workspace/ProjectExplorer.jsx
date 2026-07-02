@@ -134,6 +134,7 @@ export default function ProjectExplorer({
             );
           })}
 
+          <NavNode id="worksheet" icon="📋" label="Estimate Worksheet" />
           <NavNode id="costSummary" icon="📊" label="Cost Summary" />
           <NavNode id="costControl" icon="📉" label="Cost Control" />
           <NavNode id="procurement" icon="🛒" label="Procurement" />

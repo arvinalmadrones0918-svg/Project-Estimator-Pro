@@ -199,9 +199,11 @@ router.put("/:id", (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare("SELECT * FROM work_modules WHERE id = ?").get(id);
   if (!existing) return res.status(404).json({ error: "Not found" });
-  const { name, description, projectId, wbsCategoryId, wbsSubcategoryId, sortOrder } = req.body;
+  const { name, description, projectId, wbsCategoryId, wbsSubcategoryId, sortOrder,
+    unit, quantity, markupPct, profitPct, remarks } = req.body;
   db.prepare(`UPDATE work_modules
      SET name = ?, description = ?, projectId = ?, wbsCategoryId = ?, wbsSubcategoryId = ?, sortOrder = ?,
+         unit = ?, quantity = ?, markupPct = ?, profitPct = ?, remarks = ?,
          updatedAt = datetime('now')
      WHERE id = ?`).run(
     name ?? existing.name,
@@ -210,6 +212,11 @@ router.put("/:id", (req, res) => {
     wbsCategoryId !== undefined ? wbsCategoryId : existing.wbsCategoryId,
     wbsSubcategoryId !== undefined ? wbsSubcategoryId : existing.wbsSubcategoryId,
     sortOrder !== undefined ? Number(sortOrder) : existing.sortOrder,
+    unit !== undefined ? unit : existing.unit,
+    quantity !== undefined ? (quantity === null ? null : Number(quantity)) : existing.quantity,
+    markupPct !== undefined ? Number(markupPct) : existing.markupPct,
+    profitPct !== undefined ? Number(profitPct) : existing.profitPct,
+    remarks !== undefined ? remarks : existing.remarks,
     id
   );
   res.json(db.prepare("SELECT * FROM work_modules WHERE id = ?").get(id));
@@ -493,6 +500,39 @@ router.post("/:id/insert-assembly", (req, res) => {
     db.exec("COMMIT");
   } catch (e) { db.exec("ROLLBACK"); return res.status(500).json({ error: e.message }); }
   res.status(201).json({ mode: "copy", itemsInserted: inserted });
+});
+
+// Convert a work item's line items into a reusable Cost Assembly (master).
+router.post("/:id/convert-to-assembly", (req, res) => {
+  const moduleId = Number(req.params.id);
+  const mod = db.prepare("SELECT * FROM work_modules WHERE id = ?").get(moduleId);
+  if (!mod) return res.status(404).json({ error: "Work item not found" });
+  const name = req.body?.name || `${mod.name} (Assembly)`;
+  const asmId = db.prepare(
+    "INSERT INTO assemblies (code, name, description, unit, version, category, isActive, createdAt, updatedAt) VALUES (NULL, ?, ?, ?, 1, ?, 1, datetime('now'), datetime('now'))"
+  ).run(name, mod.description ?? null, mod.unit || "unit", req.body?.category ?? null).lastInsertRowid;
+
+  const insMat = db.prepare("INSERT INTO assembly_items (assemblyId, itemType, materialId, quantity, unitPriceAtEntry, createdAt, updatedAt) VALUES (?, 'material', ?, ?, ?, datetime('now'), datetime('now'))");
+  const insLab = db.prepare("INSERT INTO assembly_items (assemblyId, itemType, specializationId, quantity, hourlyRateAtEntry, createdAt, updatedAt) VALUES (?, 'labor', ?, ?, ?, datetime('now'), datetime('now'))");
+  const insEqp = db.prepare("INSERT INTO assembly_items (assemblyId, itemType, equipmentId, quantity, unitPriceAtEntry, createdAt, updatedAt) VALUES (?, 'equipment', ?, ?, ?, datetime('now'), datetime('now'))");
+  const insDesc = db.prepare("INSERT INTO assembly_items (assemblyId, itemType, description, cost, createdAt, updatedAt) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))");
+
+  db.exec("BEGIN");
+  try {
+    for (const r of db.prepare("SELECT materialId, quantity, unitPriceAtEntry FROM module_materials WHERE workModuleId = ?").all(moduleId))
+      insMat.run(asmId, r.materialId, r.quantity, r.unitPriceAtEntry);
+    for (const r of db.prepare("SELECT specializationId, quantity, hourlyRateAtEntry FROM module_labor WHERE workModuleId = ?").all(moduleId))
+      insLab.run(asmId, r.specializationId, r.quantity, r.hourlyRateAtEntry);
+    for (const r of db.prepare("SELECT equipmentId, quantity, unitPriceAtEntry FROM module_equipment WHERE workModuleId = ?").all(moduleId))
+      insEqp.run(asmId, r.equipmentId, r.quantity, r.unitPriceAtEntry);
+    for (const r of db.prepare("SELECT description, cost FROM module_subcontract WHERE workModuleId = ?").all(moduleId))
+      insDesc.run(asmId, "subcontract", r.description, r.cost);
+    for (const r of db.prepare("SELECT description, cost FROM module_other_costs WHERE workModuleId = ?").all(moduleId))
+      insDesc.run(asmId, "other", r.description, r.cost);
+    db.exec("COMMIT");
+  } catch (e) { db.exec("ROLLBACK"); return res.status(500).json({ error: e.message }); }
+
+  res.status(201).json(db.prepare("SELECT * FROM assemblies WHERE id = ?").get(asmId));
 });
 
 router.put("/:id/assemblies/:lineId", (req, res) => {

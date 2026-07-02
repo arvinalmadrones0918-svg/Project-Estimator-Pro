@@ -611,6 +611,15 @@ ensureColumn("materials", "selectedQuotationId", "selectedQuotationId INTEGER RE
 ensureColumn("assemblies", "category", "category TEXT");
 ensureColumn("assemblies", "isFavorite", "isFavorite INTEGER NOT NULL DEFAULT 0");
 
+// Estimate Worksheet: display/annotation fields on work modules. These are
+// additive and NOT consumed by the cost engine (project totals are unchanged);
+// they let the worksheet show unit/quantity/markup/profit/remarks per row.
+ensureColumn("work_modules", "unit", "unit TEXT");
+ensureColumn("work_modules", "quantity", "quantity REAL");
+ensureColumn("work_modules", "markupPct", "markupPct REAL NOT NULL DEFAULT 0");
+ensureColumn("work_modules", "profitPct", "profitPct REAL NOT NULL DEFAULT 0");
+ensureColumn("work_modules", "remarks", "remarks TEXT");
+
 // Phase 7: Rate Analysis / Unit Price Analysis (UPA) engine.
 db.exec(`
   -- A reusable Unit Price Analysis: a recipe of resources that produces a

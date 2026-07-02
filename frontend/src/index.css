@@ -2373,3 +2373,25 @@ textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(-
 .asm-insert-controls label { display: flex; flex-direction: column; font-size: 0.82rem; gap: 3px; }
 .asm-mode { border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 4px; }
 .asm-mode em { color: var(--muted); font-style: normal; font-size: 0.72rem; }
+
+/* ── Estimate Worksheet (spreadsheet) ────────────────────────────────────────── */
+.worksheet { padding: 0.5rem 0.25rem; display: flex; flex-direction: column; height: calc(100vh - 150px); }
+.ws-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+.ws-search { flex: 1 1 240px; padding: 0.4rem 0.6rem; }
+.ws-toolbar select { padding: 0.4rem 0.5rem; }
+.ws-grid { flex: 1; min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; outline: none; }
+.ws-head { display: flex; background: var(--header-bg); color: #fff; overflow: hidden; }
+.ws-body { flex: 1; overflow: auto; }
+.ws-row { display: flex; position: absolute; left: 0; right: 0; height: 30px; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+.ws-row.sel { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.ws-cell { flex: 0 0 auto; padding: 0 8px; height: 30px; line-height: 30px; font-size: 0.8rem; border-right: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.ws-cell.num { text-align: right; }
+.ws-cell.ws-h { font-weight: 600; border-right-color: rgba(255,255,255,0.2); }
+.ws-check { width: 32px; text-align: center; padding: 0; }
+.ws-cell.editable { cursor: text; }
+.ws-cell.active { outline: 2px solid var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.ws-input { width: 100%; height: 26px; border: none; padding: 0 4px; font-size: 0.8rem; box-sizing: border-box; }
+.ws-status { display: flex; flex-wrap: wrap; gap: 1.2rem; padding: 0.5rem 0.75rem; margin-top: 0.5rem; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; }
+.ws-status strong { color: var(--accent); }
+.ws-status-hint { margin-left: auto; color: var(--muted); }
+.save-indicator.saving { color: #f9a825; } .save-indicator.saved { color: var(--success, #1faa59); } .save-indicator.dirty { color: var(--danger); }

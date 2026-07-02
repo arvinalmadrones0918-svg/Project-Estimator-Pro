@@ -117,6 +117,7 @@ export const api = {
 
     addAssembly: (id, data) => request(`/modules/${id}/assemblies`, { method: "POST", body: JSON.stringify(data) }),
     insertAssembly: (id, data) => request(`/modules/${id}/insert-assembly`, { method: "POST", body: JSON.stringify(data) }),
+    convertToAssembly: (id, data) => request(`/modules/${id}/convert-to-assembly`, { method: "POST", body: JSON.stringify(data || {}) }),
     updateAssembly: (id, lineId, data) =>
       request(`/modules/${id}/assemblies/${lineId}`, { method: "PUT", body: JSON.stringify(data) }),
     removeAssembly: (id, lineId) => request(`/modules/${id}/assemblies/${lineId}`, { method: "DELETE" }),
