@@ -775,6 +775,11 @@ db.exec(`
   );
 `);
 
+// Rate Analysis (UPA) library — enterprise metadata (additive).
+ensureColumn("unit_price_analyses", "isFavorite", "isFavorite INTEGER NOT NULL DEFAULT 0");
+ensureColumn("unit_price_analyses", "createdBy", "createdBy TEXT");
+ensureColumn("unit_price_analyses", "modifiedBy", "modifiedBy TEXT");
+
 // Assemblies may reference UPA records (itemType 'upa' carries childUpaId).
 ensureColumn("assembly_items", "childUpaId", "childUpaId INTEGER REFERENCES unit_price_analyses(id)");
 

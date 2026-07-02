@@ -118,6 +118,7 @@ export const api = {
 
     addAssembly: (id, data) => request(`/modules/${id}/assemblies`, { method: "POST", body: JSON.stringify(data) }),
     insertAssembly: (id, data) => request(`/modules/${id}/insert-assembly`, { method: "POST", body: JSON.stringify(data) }),
+    insertUpa: (id, data) => request(`/modules/${id}/insert-upa`, { method: "POST", body: JSON.stringify(data) }),
     convertToAssembly: (id, data) => request(`/modules/${id}/convert-to-assembly`, { method: "POST", body: JSON.stringify(data || {}) }),
     updateAssembly: (id, lineId, data) =>
       request(`/modules/${id}/assemblies/${lineId}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -225,6 +226,10 @@ export const api = {
     updateResource: (id, resId, data) => request(`/upa/${id}/resources/${resId}`, { method: "PUT", body: JSON.stringify(data) }),
     removeResource: (id, resId) => request(`/upa/${id}/resources/${resId}`, { method: "DELETE" }),
     sortResources: (id, items) => request(`/upa/${id}/resources/sort`, { method: "PATCH", body: JSON.stringify({ items }) }),
+    stats: () => request("/upa/stats/dashboard"),
+    favorite: (id) => request(`/upa/${id}/favorite`, { method: "POST" }),
+    archive: (id) => request(`/upa/${id}/archive`, { method: "POST" }),
+    restore: (id) => request(`/upa/${id}/restore`, { method: "POST" }),
     versions: (id) => request(`/upa/${id}/versions`),
     version: (id, versionId) => request(`/upa/${id}/versions/${versionId}`),
     createVersion: (id, note) => request(`/upa/${id}/versions`, { method: "POST", body: JSON.stringify({ note }) }),

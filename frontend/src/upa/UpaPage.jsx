@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import * as XLSX from "xlsx";
 import { api } from "../api";
 import { money } from "../utils";
 import Spinner from "../components/Spinner";
@@ -6,6 +7,7 @@ import ErrorBanner from "../components/ErrorBanner";
 import ConfirmDialog from "../components/ConfirmDialog";
 import UpaResourceGrid from "./UpaResourceGrid";
 import UpaVersionsPanel from "./UpaVersionsPanel";
+import UpaDashboard from "./UpaDashboard";
 
 // Master/detail Rate Analysis library: list of UPAs on the left, a full
 // spreadsheet editor for the selected UPA on the right.
@@ -19,6 +21,8 @@ export default function UpaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [view, setView] = useState("library"); // "library" | "dashboard"
+  const fileRef = useRef(null);
 
   const loadList = useCallback(() => {
     setLoading(true);
@@ -63,6 +67,58 @@ export default function UpaPage() {
     } catch (e) { setError(e.message); }
   }
 
+  async function toggleFavorite(e, u) {
+    e.stopPropagation();
+    try { await api.upa.favorite(u.id); loadList(); if (u.id === selectedId) loadDetail(); }
+    catch (err) { setError(err.message); }
+  }
+
+  function exportFile(kind) {
+    const rows = list.map((u) => ({
+      Code: u.code, Description: u.description, Category: u.category, Subcategory: u.subcategory,
+      Unit: u.unit, Trade: u.trade, Revision: u.revision, Status: u.status,
+      UnitRate: u.unitRate, Favorite: u.isFavorite ? "Yes" : "No", Remarks: u.remarks,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "RateAnalysis");
+    if (kind === "json") {
+      const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "rate-analysis.json"; a.click();
+      URL.revokeObjectURL(a.href);
+      return;
+    }
+    XLSX.writeFile(wb, `rate-analysis.${kind}`);
+  }
+
+  async function importFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      let inRows;
+      if (file.name.endsWith(".json")) {
+        inRows = JSON.parse(await file.text());
+      } else {
+        const wb = XLSX.read(await file.arrayBuffer());
+        inRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      }
+      for (const r of inRows) {
+        await api.upa.create({
+          code: r.Code ?? r.code ?? null,
+          description: r.Description ?? r.description ?? "Imported Rate Analysis",
+          category: r.Category ?? r.category ?? null,
+          subcategory: r.Subcategory ?? r.subcategory ?? null,
+          unit: r.Unit ?? r.unit ?? "unit",
+          trade: r.Trade ?? r.trade ?? null,
+          remarks: r.Remarks ?? r.remarks ?? null,
+        });
+      }
+      loadList();
+    } catch (err) { setError(err.message); }
+    finally { if (fileRef.current) fileRef.current.value = ""; }
+  }
+
   function refreshAfterChange() {
     loadDetail();
     loadList();
@@ -74,10 +130,21 @@ export default function UpaPage() {
       <div className="catalog-toolbar">
         <h2 className="catalog-title">Rate Analysis Library</h2>
         <div className="catalog-toolbar-actions">
-          <button className="primary-button" onClick={handleCreate}>+ New UPA</button>
+          <button className={view === "library" ? "primary-button" : "secondary-button"} onClick={() => setView("library")}>Library</button>
+          <button className={view === "dashboard" ? "primary-button" : "secondary-button"} onClick={() => setView("dashboard")}>Dashboard</button>
+          <button className="secondary-button" onClick={() => exportFile("xlsx")}>Export Excel</button>
+          <button className="secondary-button" onClick={() => exportFile("csv")}>Export CSV</button>
+          <button className="secondary-button" onClick={() => exportFile("json")}>Export JSON</button>
+          <label className="secondary-button matlib-import">Import<input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.json" hidden onChange={importFile} /></label>
+          <button className="primary-button" onClick={handleCreate}>+ New Rate Analysis</button>
         </div>
       </div>
 
+      {view === "dashboard" && (
+        <UpaDashboard onOpen={(id) => { setSelectedId(id); setView("library"); }} setError={setError} />
+      )}
+
+      {view === "library" && (
       <div className="upa-layout">
         {/* ── Library list ─────────────────────────── */}
         <aside className="upa-list">
@@ -96,7 +163,15 @@ export default function UpaPage() {
                   className={u.id === selectedId ? "active" : ""}
                   onClick={() => setSelectedId(u.id)}
                 >
-                  <div className="upa-list-code">{u.code || "(no code)"}</div>
+                  <div className="upa-list-code">
+                    <span
+                      className="upa-fav"
+                      title={u.isFavorite ? "Unfavorite" : "Favorite"}
+                      onClick={(e) => toggleFavorite(e, u)}
+                      style={{ cursor: "pointer", marginRight: 4 }}
+                    >{u.isFavorite ? "★" : "☆"}</span>
+                    {u.code || "(no code)"}
+                  </div>
                   <div className="upa-list-desc">{u.description}</div>
                   <div className="upa-list-rate">{money(u.unitRate)}/{u.unit}</div>
                 </li>
@@ -120,6 +195,7 @@ export default function UpaPage() {
           )}
         </section>
       </div>
+      )}
 
       {confirmDelete && (
         <ConfirmDialog

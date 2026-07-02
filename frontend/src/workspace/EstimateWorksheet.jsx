@@ -4,6 +4,7 @@ import { money, getActiveCurrency } from "../utils";
 import Spinner from "../components/Spinner";
 import EstimateContextMenu from "./EstimateContextMenu";
 import InsertAssemblyModal from "./InsertAssemblyModal";
+import InsertRateAnalysisModal from "./InsertRateAnalysisModal";
 
 // Enterprise Estimate Worksheet — a spreadsheet over every work item in the
 // project. Computed cost columns come from the cost engine (single source of
@@ -45,6 +46,7 @@ export default function EstimateWorksheet({ projectId }) {
   const [editing, setEditing] = useState(null); // { rowId, key, value }
   const [contextMenu, setContextMenu] = useState(null);
   const [assemblyTarget, setAssemblyTarget] = useState(null);
+  const [rateTarget, setRateTarget] = useState(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportH, setViewportH] = useState(600);
   const undoStack = useRef([]);
@@ -240,6 +242,7 @@ export default function EstimateWorksheet({ projectId }) {
         { label: "Insert Below", action: () => insertRow(row, "below") },
         "---",
         { label: "Insert Assembly", action: () => setAssemblyTarget(row.id) },
+        { label: "Insert Rate Analysis", action: () => setRateTarget(row.id) },
         { label: "Convert to Assembly", action: () => convertToAssembly(row) },
       ],
     });
@@ -273,6 +276,7 @@ export default function EstimateWorksheet({ projectId }) {
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <button className="secondary-button" onClick={() => insertRow(displayRows[displayRows.length - 1], "below")}>+ Insert Row</button>
+        <button className="secondary-button" onClick={() => setRateTarget(displayRows[displayRows.length - 1]?.id)} disabled={!displayRows.length}>Insert Rate Analysis</button>
         <button className="secondary-button" onClick={() => deleteRows([...selected])} disabled={!selected.size}>Delete</button>
         <button className="secondary-button" onClick={undo}>↩ Undo</button>
         <button className="secondary-button" onClick={redo}>↪ Redo</button>
@@ -346,6 +350,15 @@ export default function EstimateWorksheet({ projectId }) {
             setAssemblyTarget(null); load();
           }}
           onClose={() => setAssemblyTarget(null)}
+        />
+      )}
+      {rateTarget != null && (
+        <InsertRateAnalysisModal
+          onInsert={async ({ upaId, quantity, mode }) => {
+            await api.modules.insertUpa(rateTarget, { upaId, quantity, mode });
+            setRateTarget(null); load();
+          }}
+          onClose={() => setRateTarget(null)}
         />
       )}
     </div>

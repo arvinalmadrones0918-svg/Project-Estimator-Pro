@@ -1915,6 +1915,28 @@ th {
 .upa-unit-rate { display: flex; justify-content: space-between; align-items: center; background: rgba(47,111,235,0.1); border-radius: 8px; padding: 0.75rem 1rem; }
 .upa-unit-rate strong { font-size: 1.6rem; color: var(--accent); }
 
+/* Rate Analysis dashboard */
+.upa-dashboard { padding: 0.5rem 0; }
+.upa-dash-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.upa-dash-card { background: var(--hover-bg); border-radius: 10px; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.upa-dash-card span { color: var(--text-muted); font-size: 0.85rem; }
+.upa-dash-card strong { font-size: 1.8rem; color: var(--accent); }
+.upa-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; }
+.upa-dash-panel { background: var(--card-bg, var(--hover-bg)); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; }
+.upa-dash-panel h4 { margin: 0 0 0.75rem; }
+.upa-dash-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.upa-dash-list li { display: flex; gap: 0.5rem; align-items: center; padding: 0.35rem 0.5rem; border-radius: 6px; cursor: pointer; }
+.upa-dash-list li:hover { background: var(--hover-bg); }
+.upa-dash-code { font-family: monospace; color: var(--accent); font-size: 0.85rem; min-width: 70px; }
+.upa-dash-desc { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upa-dash-badge { background: var(--accent); color: #fff; border-radius: 10px; padding: 0 0.5rem; font-size: 0.75rem; }
+.upa-dash-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.upa-dash-bars li { display: grid; grid-template-columns: 130px 1fr 40px; gap: 0.5rem; align-items: center; }
+.upa-dash-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; }
+.upa-dash-bar-track { background: var(--hover-bg); border-radius: 6px; height: 12px; overflow: hidden; }
+.upa-dash-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+.upa-dash-bar-count { text-align: right; font-size: 0.85rem; color: var(--text-muted); }
+
 .upa-versions-panel { background: var(--hover-bg); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
 .upa-versions-head { display: flex; justify-content: space-between; align-items: center; }
 .upa-versions-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }

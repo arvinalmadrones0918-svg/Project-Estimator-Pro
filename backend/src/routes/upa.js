@@ -71,6 +71,38 @@ router.get("/:id/calculate", (req, res) => {
   res.json(calc);
 });
 
+// Dashboard statistics for the Rate Analysis library.
+router.get("/stats/dashboard", (req, res) => {
+  const total = db.prepare("SELECT COUNT(*) AS c FROM unit_price_analyses WHERE deletedAt IS NULL AND status != 'archived'").get().c;
+  const archived = db.prepare("SELECT COUNT(*) AS c FROM unit_price_analyses WHERE deletedAt IS NULL AND status = 'archived'").get().c;
+  const favorites = db.prepare("SELECT id, code, description, category FROM unit_price_analyses WHERE deletedAt IS NULL AND isFavorite = 1 ORDER BY description LIMIT 20").all();
+  const recent = db.prepare("SELECT id, code, description, category, updatedAt FROM unit_price_analyses WHERE deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 10").all();
+  const byCategory = db.prepare("SELECT COALESCE(category,'Uncategorized') AS category, COUNT(*) AS count FROM unit_price_analyses WHERE deletedAt IS NULL GROUP BY category ORDER BY count DESC").all();
+  const mostUsed = db.prepare(
+    `SELECT u.id, u.code, u.description, COUNT(mu.id) AS uses
+     FROM unit_price_analyses u LEFT JOIN module_upa mu ON mu.upaId = u.id
+     WHERE u.deletedAt IS NULL GROUP BY u.id HAVING uses > 0 ORDER BY uses DESC, u.description LIMIT 10`
+  ).all();
+  res.json({ total, archived, favorites, recent, byCategory, mostUsed });
+});
+
+router.post("/:id/favorite", (req, res) => {
+  const id = Number(req.params.id);
+  const u = db.prepare("SELECT isFavorite FROM unit_price_analyses WHERE id = ?").get(id);
+  if (!u) return res.status(404).json({ error: "Not found" });
+  db.prepare("UPDATE unit_price_analyses SET isFavorite = ?, updatedAt = datetime('now') WHERE id = ?").run(u.isFavorite ? 0 : 1, id);
+  res.json(withDetail(db.prepare("SELECT * FROM unit_price_analyses WHERE id = ?").get(id)));
+});
+
+router.post("/:id/archive", (req, res) => {
+  db.prepare("UPDATE unit_price_analyses SET status = 'archived', updatedAt = datetime('now') WHERE id = ?").run(Number(req.params.id));
+  res.json(withDetail(db.prepare("SELECT * FROM unit_price_analyses WHERE id = ?").get(Number(req.params.id))));
+});
+router.post("/:id/restore", (req, res) => {
+  db.prepare("UPDATE unit_price_analyses SET status = 'active', deletedAt = NULL, updatedAt = datetime('now') WHERE id = ?").run(Number(req.params.id));
+  res.json(withDetail(db.prepare("SELECT * FROM unit_price_analyses WHERE id = ?").get(Number(req.params.id))));
+});
+
 router.post("/", (req, res) => {
   if (!req.body.description) return res.status(400).json({ error: "description is required" });
   const values = HEAD_FIELDS.map((f) => {

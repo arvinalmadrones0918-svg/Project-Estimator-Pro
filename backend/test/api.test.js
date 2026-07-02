@@ -596,3 +596,65 @@ describe("Resource libraries", () => {
     expect(u.body.preferredVendor).toBe("AquaSeal"); // preserved
   });
 });
+
+describe("Rate Analysis (UPA) enterprise features", () => {
+  test("favorite toggles, archive/restore, and dashboard stats work", async () => {
+    const created = await request(app).post("/api/upa").send({
+      code: `RA-${Date.now()}`, description: "Test Rate Analysis", category: "Structural", unit: "m3",
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.id;
+
+    const fav = await request(app).post(`/api/upa/${id}/favorite`);
+    expect(fav.status).toBe(200);
+    expect(fav.body.isFavorite).toBe(1);
+    const unfav = await request(app).post(`/api/upa/${id}/favorite`);
+    expect(unfav.body.isFavorite).toBe(0);
+
+    const arch = await request(app).post(`/api/upa/${id}/archive`);
+    expect(arch.body.status).toBe("archived");
+    const rest = await request(app).post(`/api/upa/${id}/restore`);
+    expect(rest.body.status).toBe("active");
+
+    const stats = await request(app).get("/api/upa/stats/dashboard");
+    expect(stats.status).toBe(200);
+    expect(typeof stats.body.total).toBe("number");
+    expect(Array.isArray(stats.body.byCategory)).toBe(true);
+    expect(Array.isArray(stats.body.recent)).toBe(true);
+  });
+
+  test("insert-upa expand copies resources into a work item", async () => {
+    const proj = await request(app).post("/api/projects").send({ name: "RA Insert Project" });
+    const mod = await request(app).post("/api/modules").send({ name: "Slab", projectId: proj.body.id });
+    const mat = await request(app).post("/api/materials").send({ name: "Concrete", category: "Structural", unit: "m3", unitPrice: 100 });
+    const ra = await request(app).post("/api/upa").send({ description: "Concrete RA", unit: "m3" });
+    await request(app).post(`/api/upa/${ra.body.id}/resources`).send({
+      resourceType: "material", materialId: mat.body.id, quantity: 2, wastePct: 10,
+    });
+
+    const expand = await request(app).post(`/api/modules/${mod.body.id}/insert-upa`).send({
+      upaId: ra.body.id, quantity: 3, mode: "expand",
+    });
+    expect(expand.status).toBe(201);
+    expect(expand.body.mode).toBe("expand");
+    expect(expand.body.itemsInserted).toBe(1);
+
+    const full = await request(app).get(`/api/modules/${mod.body.id}`);
+    expect(full.body.materialLines.length).toBeGreaterThan(0);
+    // 2 qty * 1.10 waste * 3 insert-qty = 6.6
+    expect(full.body.materialLines[0].quantity).toBeCloseTo(6.6, 5);
+  });
+
+  test("insert-upa link creates a frozen module_upa reference", async () => {
+    const proj = await request(app).post("/api/projects").send({ name: "RA Link Project" });
+    const mod = await request(app).post("/api/modules").send({ name: "Beam", projectId: proj.body.id });
+    const ra = await request(app).post("/api/upa").send({ description: "Beam RA", unit: "m" });
+
+    const link = await request(app).post(`/api/modules/${mod.body.id}/insert-upa`).send({
+      upaId: ra.body.id, quantity: 5, mode: "link",
+    });
+    expect(link.status).toBe(201);
+    expect(link.body.mode).toBe("link");
+    expect(link.body.moduleUpaId).toBeGreaterThan(0);
+  });
+});

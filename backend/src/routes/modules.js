@@ -502,6 +502,71 @@ router.post("/:id/insert-assembly", (req, res) => {
   res.status(201).json({ mode: "copy", itemsInserted: inserted });
 });
 
+// Insert a Rate Analysis (UPA) into a work item in one of two modes:
+//   link   — reference the master with the per-unit breakdown frozen at entry
+//            (existing module_upa mechanism, identical to POST /:id/upa).
+//   expand — copy every UPA resource into this work item's own line tables,
+//            multiplied by quantity, so it becomes an independent editable copy.
+router.post("/:id/insert-upa", (req, res) => {
+  const workModuleId = Number(req.params.id);
+  const { upaId, quantity = 1, mode = "expand" } = req.body;
+  if (!upaId) return res.status(400).json({ error: "upaId is required" });
+  const qty = Number(quantity) || 1;
+
+  if (mode === "link") {
+    const calc = calculateUPA(Number(upaId));
+    if (!calc) return res.status(400).json({ error: "upaId does not exist" });
+    const r = db.prepare(
+      `INSERT INTO module_upa (workModuleId, upaId, quantity, unitRateAtEntry,
+        matCostAtEntry, laborCostAtEntry, equipCostAtEntry, subCostAtEntry, otherCostAtEntry,
+        notes, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, datetime('now'), datetime('now'))`
+    ).run(workModuleId, Number(upaId), qty, calc.unitRate,
+      calc.materialCost, calc.laborCost, calc.equipmentCost, calc.subcontractCost, calc.otherCost);
+    return res.status(201).json({ mode: "link", moduleUpaId: r.lastInsertRowid });
+  }
+
+  // Expand: copy resources into the work item's own line tables.
+  const upa = db.prepare("SELECT id FROM unit_price_analyses WHERE id = ?").get(Number(upaId));
+  if (!upa) return res.status(400).json({ error: "upaId does not exist" });
+  const resources = db.prepare("SELECT * FROM upa_resources WHERE upaId = ? ORDER BY sortOrder, id").all(Number(upaId));
+
+  // Effective quantity of a resource including waste, times the insert quantity.
+  const effQty = (r) => (Number(r.quantity) || 0) * (1 + (Number(r.wastePct) || 0) / 100) * qty;
+
+  let inserted = 0;
+  db.exec("BEGIN");
+  try {
+    for (const r of resources) {
+      if (r.resourceType === "material" && r.materialId) {
+        const price = db.prepare("SELECT unitPrice FROM materials WHERE id = ?").get(r.materialId)?.unitPrice ?? 0;
+        db.prepare("INSERT INTO module_materials (workModuleId, materialId, quantity, unitPriceAtEntry, notes) VALUES (?, ?, ?, ?, ?)")
+          .run(workModuleId, r.materialId, effQty(r), price, r.notes ?? r.description ?? null);
+      } else if (r.resourceType === "labor" && r.specializationId) {
+        const rate = db.prepare("SELECT hourlyRate FROM labor_specializations WHERE id = ?").get(r.specializationId)?.hourlyRate ?? 0;
+        // Prefer explicit man-hours; fall back to quantity.
+        const hours = (Number(r.manhours) || Number(r.laborHours) || Number(r.quantity) || 0) * qty;
+        db.prepare("INSERT INTO module_labor (workModuleId, specializationId, quantity, hourlyRateAtEntry, notes) VALUES (?, ?, ?, ?, ?)")
+          .run(workModuleId, r.specializationId, hours, rate, r.notes ?? r.description ?? null);
+      } else if (r.resourceType === "equipment" && r.equipmentId) {
+        const price = db.prepare("SELECT unitPrice FROM equipment WHERE id = ?").get(r.equipmentId)?.unitPrice ?? 0;
+        const hours = (Number(r.operatingHours) || Number(r.quantity) || 0) * qty;
+        db.prepare("INSERT INTO module_equipment (workModuleId, equipmentId, quantity, unitPriceAtEntry, notes) VALUES (?, ?, ?, ?, ?)")
+          .run(workModuleId, r.equipmentId, hours, price, r.notes ?? r.description ?? null);
+      } else if (r.resourceType === "subcontract") {
+        db.prepare("INSERT INTO module_subcontract (workModuleId, description, cost, notes) VALUES (?, ?, ?, ?)")
+          .run(workModuleId, r.description ?? "Subcontract", (Number(r.frozenCost) || 0) * qty, r.notes ?? null);
+      } else if (r.resourceType === "other") {
+        db.prepare("INSERT INTO module_other_costs (workModuleId, description, cost, notes) VALUES (?, ?, ?, ?)")
+          .run(workModuleId, r.description ?? "Other cost", (Number(r.frozenCost) || 0) * qty, r.notes ?? null);
+      }
+      inserted += 1;
+    }
+    db.exec("COMMIT");
+  } catch (e) { db.exec("ROLLBACK"); return res.status(500).json({ error: e.message }); }
+  res.status(201).json({ mode: "expand", itemsInserted: inserted });
+});
+
 // Convert a work item's line items into a reusable Cost Assembly (master).
 router.post("/:id/convert-to-assembly", (req, res) => {
   const moduleId = Number(req.params.id);
