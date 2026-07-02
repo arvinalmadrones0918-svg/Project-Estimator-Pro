@@ -1,0 +1,32 @@
+# Production stack: backend (Node/SQLite) + frontend (Nginx).
+# Usage: docker compose up -d --build
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+    volumes:
+      - estimator-data:/app/backend          # persists data.db
+    expose:
+      - "4000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      # For HTTPS, terminate SSL here or in front (see DEPLOYMENT.md):
+      # - "443:443"
+    # volumes:
+    #   - ./certs:/etc/nginx/certs:ro
+
+volumes:
+  estimator-data:

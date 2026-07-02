@@ -3,3 +3,11 @@ backend/data.db
 frontend/dist/
 *.log
 .env
+/package.json
+/package-lock.json
+/verify_*.mjs
+
+# Test artifacts
+coverage/
+**/coverage/
+backend/backups/
