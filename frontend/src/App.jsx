@@ -106,7 +106,7 @@ const TABS = [
   { key: "procurement", label: "Procurement", component: ProcurementPage },
   { key: "tendering", label: "Tendering", component: TenderingPage },
   { key: "cost-control", label: "Cost Control", component: CostControlPage },
-  { key: "modules", label: "Work Modules", component: ModulesPage },
+  { key: "modules-legacy", label: "Work Modules (legacy)", component: ModulesPage },
   { key: "materials-legacy", label: "Mat DB (legacy)", component: MaterialsPage },
   { key: "labor-legacy", label: "Labor DB (legacy)", component: LaborPage },
 ];
