@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { api } from "./api";
+import { money } from "./utils";
 
 const COST_COLORS = ["#2f6feb", "#e8893a"];
-
-function money(n) {
-  return `$${n.toFixed(2)}`;
-}
 
 export default function ModulesPage() {
   const [modules, setModules] = useState([]);

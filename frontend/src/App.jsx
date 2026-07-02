@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import MaterialsPage from "./MaterialsPage";
 import LaborPage from "./LaborPage";
 import ModulesPage from "./ModulesPage";
@@ -23,6 +23,8 @@ import NavDropdown from "./components/NavDropdown";
 import { useAuth } from "./auth/AuthContext";
 import { catalogApis } from "./catalog/catalogApi";
 import { useTheme } from "./hooks/useTheme";
+import { api } from "./api";
+import { setActiveCurrency, getActiveCurrency, subscribeCurrency } from "./utils";
 
 // Catalog tab definitions — each reuses the same CatalogPage component
 // with different API/field/label config.
@@ -131,12 +133,26 @@ const NAV_GROUPS = [
 export default function App() {
   const [tab, setTab] = useState("executive");
   const [openProjectId, setOpenProjectId] = useState(null);
+  const [baseCurrency, setBaseCurrency] = useState("USD");
   const { theme, toggleTheme } = useTheme();
   const { user, loading, can, isAdmin } = useAuth();
 
+  // Subscribe the whole app to the active currency so every monetary value
+  // re-renders when the project (or base) currency changes.
+  useSyncExternalStore(subscribeCurrency, getActiveCurrency);
+
+  // Company/app base currency is the default for portfolio-wide views. A single
+  // project overrides it (see ProjectWorkspace) while it is open.
+  useEffect(() => {
+    if (!user) return;
+    api.settings.get()
+      .then((s) => { if (s?.baseCurrency) { setBaseCurrency(s.baseCurrency); setActiveCurrency(s.baseCurrency); } })
+      .catch(() => {});
+  }, [user]);
+
   function handleOpenProject(id) { setOpenProjectId(id); setTab("dashboard"); }
-  function handleBackToDashboard() { setOpenProjectId(null); setTab("dashboard"); }
-  function handleTabChange(key) { setOpenProjectId(null); setTab(key); }
+  function handleBackToDashboard() { setActiveCurrency(baseCurrency); setOpenProjectId(null); setTab("dashboard"); }
+  function handleTabChange(key) { setActiveCurrency(baseCurrency); setOpenProjectId(null); setTab(key); }
 
   if (loading) return <div className="app-loading">Loading…</div>;
   if (!user) return <LoginPage />;

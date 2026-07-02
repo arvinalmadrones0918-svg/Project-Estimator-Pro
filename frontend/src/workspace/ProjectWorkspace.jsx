@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { setActiveCurrency } from "../utils";
 import Spinner from "../components/Spinner";
 import ErrorBanner from "../components/ErrorBanner";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -59,6 +60,11 @@ export default function ProjectWorkspace({ projectId, onBack }) {
   }
 
   useEffect(loadAll, [projectId]);
+
+  // The project's Currency field drives money formatting across the workspace.
+  useEffect(() => {
+    if (project?.currency) setActiveCurrency(project.currency);
+  }, [project?.currency]);
 
   const recalc = useCallback(() => {
     api.estimate.calculateProject(projectId, { scenarioId: activeScenarioId })
