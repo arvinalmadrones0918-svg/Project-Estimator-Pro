@@ -68,11 +68,19 @@ export const api = {
     remove: (id) => request(`/equipment/${id}`, { method: "DELETE" }),
   },
   assemblies: {
-    list: () => request("/assemblies"),
+    list: (params) => request(`/assemblies${qs(params)}`),
     get: (id) => request(`/assemblies/${id}`),
     create: (data) => request("/assemblies", { method: "POST", body: JSON.stringify(data) }),
     update: (id, data) => request(`/assemblies/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id) => request(`/assemblies/${id}`, { method: "DELETE" }),
+    duplicate: (id) => request(`/assemblies/${id}/duplicate`, { method: "POST" }),
+    archive: (id) => request(`/assemblies/${id}/archive`, { method: "POST" }),
+    restore: (id) => request(`/assemblies/${id}/restore`, { method: "POST" }),
+    favorite: (id) => request(`/assemblies/${id}/favorite`, { method: "POST" }),
+    stats: () => request("/assemblies/stats/dashboard"),
+    addItem: (id, kind, data) => request(`/assemblies/${id}/items/${kind}`, { method: "POST", body: JSON.stringify(data) }),
+    updateItem: (id, itemId, data) => request(`/assemblies/${id}/items/${itemId}`, { method: "PUT", body: JSON.stringify(data) }),
+    removeItem: (id, itemId) => request(`/assemblies/${id}/items/${itemId}`, { method: "DELETE" }),
   },
   modules: {
     list: (params) => request(`/modules${qs(params)}`),
@@ -108,6 +116,7 @@ export const api = {
     removeOtherCost: (id, lineId) => request(`/modules/${id}/other-costs/${lineId}`, { method: "DELETE" }),
 
     addAssembly: (id, data) => request(`/modules/${id}/assemblies`, { method: "POST", body: JSON.stringify(data) }),
+    insertAssembly: (id, data) => request(`/modules/${id}/insert-assembly`, { method: "POST", body: JSON.stringify(data) }),
     updateAssembly: (id, lineId, data) =>
       request(`/modules/${id}/assemblies/${lineId}`, { method: "PUT", body: JSON.stringify(data) }),
     removeAssembly: (id, lineId) => request(`/modules/${id}/assemblies/${lineId}`, { method: "DELETE" }),

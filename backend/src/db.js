@@ -607,6 +607,10 @@ db.exec(`
 // Per-material selection pointer (which quotation is the chosen one).
 ensureColumn("materials", "selectedQuotationId", "selectedQuotationId INTEGER REFERENCES material_quotations(id)");
 
+// Cost Assemblies: category (for the library grouping) and a favorite flag.
+ensureColumn("assemblies", "category", "category TEXT");
+ensureColumn("assemblies", "isFavorite", "isFavorite INTEGER NOT NULL DEFAULT 0");
+
 // Phase 7: Rate Analysis / Unit Price Analysis (UPA) engine.
 db.exec(`
   -- A reusable Unit Price Analysis: a recipe of resources that produces a

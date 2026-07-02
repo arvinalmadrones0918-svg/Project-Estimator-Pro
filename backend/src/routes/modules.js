@@ -446,6 +446,55 @@ router.post("/:id/assemblies", (req, res) => {
   res.status(201).json(db.prepare("SELECT * FROM module_assemblies WHERE id = ?").get(result.lastInsertRowid));
 });
 
+// Insert a Cost Assembly into a module in one of two modes:
+//   link — reference the master (auto-updates when the master changes)
+//   copy — expand every assembly item into this module's own line items,
+//          multiplied by quantity, so it is independent of the master.
+router.post("/:id/insert-assembly", (req, res) => {
+  const workModuleId = Number(req.params.id);
+  const { assemblyId, quantity = 1, mode = "copy" } = req.body;
+  if (!assemblyId) return res.status(400).json({ error: "assemblyId is required" });
+  const assembly = db.prepare("SELECT id FROM assemblies WHERE id = ?").get(Number(assemblyId));
+  if (!assembly) return res.status(400).json({ error: "assemblyId does not exist" });
+  const qty = Number(quantity) || 1;
+
+  if (mode === "link") {
+    const unitCostAtEntry = getAssemblyTotalCost(Number(assemblyId));
+    const r = db.prepare(
+      "INSERT INTO module_assemblies (workModuleId, assemblyId, quantity, unitCostAtEntry, notes, markup, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, NULL, 0, 'included', datetime('now'), datetime('now'))"
+    ).run(workModuleId, Number(assemblyId), qty, unitCostAtEntry);
+    return res.status(201).json({ mode: "link", moduleAssemblyId: r.lastInsertRowid });
+  }
+
+  // Copy: expand items into the module's own line tables.
+  const items = db.prepare("SELECT * FROM assembly_items WHERE assemblyId = ? ORDER BY sortOrder, id").all(Number(assemblyId));
+  let inserted = 0;
+  db.exec("BEGIN");
+  try {
+    for (const it of items) {
+      if (it.itemType === "material" && it.materialId) {
+        db.prepare("INSERT INTO module_materials (workModuleId, materialId, quantity, unitPriceAtEntry, notes) VALUES (?, ?, ?, ?, ?)")
+          .run(workModuleId, it.materialId, (it.quantity || 0) * qty, it.unitPriceAtEntry ?? 0, it.notes ?? null);
+      } else if (it.itemType === "labor" && it.specializationId) {
+        db.prepare("INSERT INTO module_labor (workModuleId, specializationId, quantity, hourlyRateAtEntry, notes) VALUES (?, ?, ?, ?, ?)")
+          .run(workModuleId, it.specializationId, (it.quantity || 0) * qty, it.hourlyRateAtEntry ?? 0, it.notes ?? null);
+      } else if (it.itemType === "equipment" && it.equipmentId) {
+        db.prepare("INSERT INTO module_equipment (workModuleId, equipmentId, quantity, unitPriceAtEntry, notes) VALUES (?, ?, ?, ?, ?)")
+          .run(workModuleId, it.equipmentId, (it.quantity || 0) * qty, it.unitPriceAtEntry ?? 0, it.notes ?? null);
+      } else if (it.itemType === "subcontract") {
+        db.prepare("INSERT INTO module_subcontract (workModuleId, description, cost, notes) VALUES (?, ?, ?, ?)")
+          .run(workModuleId, it.description ?? "Subcontract", (it.cost || 0) * qty, it.notes ?? null);
+      } else if (it.itemType === "other") {
+        db.prepare("INSERT INTO module_other_costs (workModuleId, description, cost, notes) VALUES (?, ?, ?, ?)")
+          .run(workModuleId, it.description ?? "Other cost", (it.cost || 0) * qty, it.notes ?? null);
+      }
+      inserted += 1;
+    }
+    db.exec("COMMIT");
+  } catch (e) { db.exec("ROLLBACK"); return res.status(500).json({ error: e.message }); }
+  res.status(201).json({ mode: "copy", itemsInserted: inserted });
+});
+
 router.put("/:id/assemblies/:lineId", (req, res) => {
   const lineId = Number(req.params.lineId);
   const existing = db.prepare("SELECT * FROM module_assemblies WHERE id = ?").get(lineId);

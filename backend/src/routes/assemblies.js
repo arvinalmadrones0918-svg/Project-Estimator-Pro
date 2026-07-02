@@ -57,16 +57,16 @@ router.get("/:id", (req, res) => {
 });
 
 router.post("/", (req, res) => {
-  const { code, name, description, unit, version } = req.body;
+  const { code, name, description, unit, version, category } = req.body;
   if (!name || !unit) {
     return res.status(400).json({ error: "name and unit are required" });
   }
   const result = db
     .prepare(
-      `INSERT INTO assemblies (code, name, description, unit, version, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+      `INSERT INTO assemblies (code, name, description, unit, version, category, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
     )
-    .run(code ?? null, name, description ?? null, unit, Number(version ?? 1));
+    .run(code ?? null, name, description ?? null, unit, Number(version ?? 1), category ?? null);
   res.status(201).json(withTotalCost(db.prepare("SELECT * FROM assemblies WHERE id = ?").get(result.lastInsertRowid)));
 });
 
@@ -74,10 +74,10 @@ router.put("/:id", (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare("SELECT * FROM assemblies WHERE id = ?").get(id);
   if (!existing) return res.status(404).json({ error: "Not found" });
-  const { code, name, description, unit, version, isActive } = req.body;
+  const { code, name, description, unit, version, isActive, category } = req.body;
   db.prepare(
     `UPDATE assemblies
-     SET code = ?, name = ?, description = ?, unit = ?, version = ?, isActive = ?, updatedAt = datetime('now')
+     SET code = ?, name = ?, description = ?, unit = ?, version = ?, isActive = ?, category = ?, updatedAt = datetime('now')
      WHERE id = ?`
   ).run(
     code !== undefined ? code : existing.code,
@@ -86,9 +86,66 @@ router.put("/:id", (req, res) => {
     unit ?? existing.unit,
     version != null ? Number(version) : existing.version,
     isActive !== undefined ? Number(Boolean(isActive)) : existing.isActive,
+    category !== undefined ? category : existing.category,
     id
   );
   res.json(withTotalCost(db.prepare("SELECT * FROM assemblies WHERE id = ?").get(id)));
+});
+
+// Duplicate an assembly (deep copy: header + all items). The copy is active.
+router.post("/:id/duplicate", (req, res) => {
+  const id = Number(req.params.id);
+  const src = db.prepare("SELECT * FROM assemblies WHERE id = ?").get(id);
+  if (!src) return res.status(404).json({ error: "Not found" });
+  const copyId = db.prepare(
+    `INSERT INTO assemblies (code, name, description, unit, version, category, isActive, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, 1, ?, 1, datetime('now'), datetime('now'))`
+  ).run(src.code ? `${src.code}-COPY` : null, `${src.name} (Copy)`, src.description, src.unit, src.category).lastInsertRowid;
+  const items = db.prepare("SELECT * FROM assembly_items WHERE assemblyId = ?").all(id);
+  const ins = db.prepare(
+    `INSERT INTO assembly_items (assemblyId, itemType, materialId, specializationId, equipmentId, childAssemblyId, childUpaId, description, quantity, unitPriceAtEntry, hourlyRateAtEntry, cost, notes, sortOrder, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+  );
+  for (const it of items) {
+    ins.run(copyId, it.itemType, it.materialId, it.specializationId, it.equipmentId, it.childAssemblyId ?? null, it.childUpaId ?? null,
+      it.description, it.quantity, it.unitPriceAtEntry, it.hourlyRateAtEntry, it.cost, it.notes, it.sortOrder);
+  }
+  res.status(201).json(withTotalCost(db.prepare("SELECT * FROM assemblies WHERE id = ?").get(copyId)));
+});
+
+// Archive / restore (soft, via isActive) — kept distinct from delete for clarity.
+router.post("/:id/archive", (req, res) => {
+  db.prepare("UPDATE assemblies SET isActive = 0, updatedAt = datetime('now') WHERE id = ?").run(Number(req.params.id));
+  res.json(withTotalCost(db.prepare("SELECT * FROM assemblies WHERE id = ?").get(Number(req.params.id))));
+});
+router.post("/:id/restore", (req, res) => {
+  db.prepare("UPDATE assemblies SET isActive = 1, updatedAt = datetime('now') WHERE id = ?").run(Number(req.params.id));
+  res.json(withTotalCost(db.prepare("SELECT * FROM assemblies WHERE id = ?").get(Number(req.params.id))));
+});
+
+// Toggle favorite (for the dashboard's Favorite Assemblies list).
+router.post("/:id/favorite", (req, res) => {
+  const id = Number(req.params.id);
+  const a = db.prepare("SELECT isFavorite FROM assemblies WHERE id = ?").get(id);
+  if (!a) return res.status(404).json({ error: "Not found" });
+  db.prepare("UPDATE assemblies SET isFavorite = ? WHERE id = ?").run(a.isFavorite ? 0 : 1, id);
+  res.json(withTotalCost(db.prepare("SELECT * FROM assemblies WHERE id = ?").get(id)));
+});
+
+// Dashboard statistics: totals, most used (by module references), recently
+// modified, and favorites.
+router.get("/stats/dashboard", (req, res) => {
+  const total = db.prepare("SELECT COUNT(*) AS c FROM assemblies WHERE isActive = 1").get().c;
+  const archived = db.prepare("SELECT COUNT(*) AS c FROM assemblies WHERE isActive = 0").get().c;
+  const byCategory = db.prepare("SELECT COALESCE(category,'Uncategorized') AS category, COUNT(*) AS count FROM assemblies WHERE isActive = 1 GROUP BY category ORDER BY count DESC").all();
+  const mostUsed = db.prepare(
+    `SELECT a.id, a.code, a.name, COUNT(ma.id) AS uses
+     FROM assemblies a LEFT JOIN module_assemblies ma ON ma.assemblyId = a.id
+     WHERE a.isActive = 1 GROUP BY a.id HAVING uses > 0 ORDER BY uses DESC, a.name LIMIT 10`
+  ).all();
+  const recent = db.prepare("SELECT id, code, name, category, updatedAt FROM assemblies WHERE isActive = 1 ORDER BY updatedAt DESC LIMIT 10").all();
+  const favorites = db.prepare("SELECT id, code, name, category FROM assemblies WHERE isActive = 1 AND isFavorite = 1 ORDER BY name LIMIT 20").all();
+  res.json({ total, archived, byCategory, mostUsed, recent, favorites });
 });
 
 // Assemblies are referenced by module_assemblies via assemblyId, so they are

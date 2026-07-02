@@ -2332,3 +2332,44 @@ textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(-
 /* ── Phase 11: System panel ──────────────────────────────────────────────────── */
 .sys-logo-preview { grid-column: 1 / -1; }
 .sys-logo-preview img { max-height: 60px; max-width: 200px; border: 1px solid var(--border); border-radius: 6px; padding: 4px; background: #fff; }
+
+/* ── Cost Assemblies ─────────────────────────────────────────────────────────── */
+.assemblies-page { padding: 0.5rem 0.25rem; }
+.asm-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+.asm-search { flex: 1 1 260px; padding: 0.4rem 0.6rem; }
+.asm-import { cursor: pointer; }
+.asm-desc { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.asm-actions { white-space: nowrap; }
+.asm-actions .link-button { margin-right: 6px; }
+.asm-archived { opacity: 0.55; }
+.asm-editor { max-width: 900px; width: 94%; max-height: 90vh; overflow: auto; }
+.asm-editor-head { display: flex; justify-content: space-between; align-items: center; }
+.asm-header-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+.asm-header-grid label { display: flex; flex-direction: column; font-size: 0.8rem; gap: 3px; }
+.asm-desc-field { grid-column: 1 / -1; }
+.asm-section { margin-bottom: 1rem; }
+.asm-section h4 { margin: 0.5rem 0 0.25rem; }
+.asm-items .asm-qty { width: 90px; }
+.asm-add-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.35rem; }
+.asm-add-row select, .asm-add-row input { padding: 0.35rem 0.5rem; }
+.asm-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem; border-top: 2px solid var(--border); padding-top: 0.75rem; margin-top: 0.5rem; }
+.asm-totals > div { display: flex; flex-direction: column; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.6rem; font-size: 0.82rem; }
+.asm-totals strong { font-size: 1rem; }
+.asm-total-direct { border-color: var(--accent) !important; }
+.asm-total-grand strong { color: var(--accent); }
+.asm-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.asm-dash-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; }
+.asm-dash-card h4 { margin: 0 0 0.5rem; }
+.asm-dash-list { list-style: none; padding: 0; margin: 0; }
+.asm-dash-list li { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 0.85rem; }
+.asm-uses, .asm-cat { color: var(--muted); font-size: 0.75rem; }
+.asm-insert-modal { max-width: 620px; width: 92%; }
+.asm-insert-list { max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; margin: 0.5rem 0; }
+.asm-insert-row { display: grid; grid-template-columns: 20px 1fr auto auto; gap: 0.6rem; align-items: center; padding: 0.4rem 0.6rem; cursor: pointer; border-bottom: 1px solid var(--border); }
+.asm-insert-row.selected { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.asm-insert-cat { color: var(--muted); font-size: 0.78rem; }
+.asm-insert-cost { font-size: 0.8rem; }
+.asm-insert-controls { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
+.asm-insert-controls label { display: flex; flex-direction: column; font-size: 0.82rem; gap: 3px; }
+.asm-mode { border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 4px; }
+.asm-mode em { color: var(--muted); font-style: normal; font-size: 0.72rem; }

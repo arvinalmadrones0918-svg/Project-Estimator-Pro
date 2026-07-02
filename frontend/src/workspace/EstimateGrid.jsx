@@ -5,6 +5,7 @@ import Spinner from "../components/Spinner";
 import CatalogSearchModal from "./CatalogSearchModal";
 import EstimateContextMenu from "./EstimateContextMenu";
 import UpaPickerModal from "./UpaPickerModal";
+import InsertAssemblyModal from "./InsertAssemblyModal";
 
 const ROW_H = 36;
 const OVERSCAN = 8;
@@ -62,6 +63,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
   const [assemblyChildren, setAssemblyChildren] = useState({});
   const [showCatalogModal, setShowCatalogModal] = useState(false);
   const [showUpaModal, setShowUpaModal] = useState(false);
+  const [showAssemblyModal, setShowAssemblyModal] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [clipboard, setClipboard] = useState(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -492,6 +494,7 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
           </span>
           <button className="secondary-button" title="Undo (Ctrl+Z)" onClick={undo}>↩ Undo</button>
           <button className="secondary-button" title="Redo (Ctrl+Y)" onClick={redo}>↪ Redo</button>
+          <button className="secondary-button" onClick={() => setShowAssemblyModal(true)}>＋ Insert Assembly</button>
           <button className="primary-button" onClick={() => setShowCatalogModal(true)}>＋ Insert Item</button>
         </div>
       </div>
@@ -744,6 +747,18 @@ export default function EstimateGrid({ moduleId, onChange, setError }) {
         <CatalogSearchModal
           onInsert={handleInsertCatalog}
           onClose={() => setShowCatalogModal(false)}
+        />
+      )}
+
+      {showAssemblyModal && (
+        <InsertAssemblyModal
+          onInsert={async ({ assemblyId, quantity, mode }) => {
+            await api.modules.insertAssembly(moduleId, { assemblyId, quantity, mode });
+            setShowAssemblyModal(false);
+            loadDetail();
+            onChange();
+          }}
+          onClose={() => setShowAssemblyModal(false)}
         />
       )}
 

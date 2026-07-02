@@ -11,6 +11,7 @@ import UpaPage from "./upa/UpaPage";
 import ReportsPage from "./reports/ReportsPage";
 import TenderingPage from "./tendering/TenderingPage";
 import GeneralRequirementsPage from "./gr/GeneralRequirementsPage";
+import CostAssembliesPage from "./assemblies/CostAssembliesPage";
 import ExcelPage from "./excel/ExcelPage";
 import CostControlPage from "./costcontrol/CostControlPage";
 import ExecutiveDashboard from "./analytics/ExecutiveDashboard";
@@ -106,6 +107,7 @@ const TABS = [
   ...CATALOG_TABS,
   { key: "rate-analysis", label: "Rate Analysis", component: UpaPage },
   { key: "general-requirements", label: "General Requirements", component: GeneralRequirementsPage },
+  { key: "cost-assemblies", label: "Cost Assemblies", component: CostAssembliesPage },
   { key: "modules", label: "Work Modules", component: ModulesPage },
   { key: "suppliers", label: "Suppliers", component: SuppliersPage },
   { key: "procurement", label: "Procurement", component: ProcurementPage },
@@ -124,7 +126,7 @@ const TOP_LEVEL = ["executive", "mywork", "dashboard"];
 // tab keys it exposes — the pages/routes behind them are unchanged.
 const NAV_GROUPS = [
   { label: "Master Catalogs", keys: ["cat-materials", "cat-labor", "cat-equipment", "cat-subcontract", "cat-other"] },
-  { label: "Estimating", keys: ["rate-analysis", "general-requirements", "modules"] },
+  { label: "Estimating", keys: ["rate-analysis", "general-requirements", "cost-assemblies", "modules"] },
   { label: "Procurement", keys: ["suppliers", "procurement", "tendering"] },
   { label: "Project Controls", keys: ["cost-control", "reports", "excel"] },
   { label: "Legacy", keys: ["materials-legacy", "labor-legacy"] },
