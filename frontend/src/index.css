@@ -2418,6 +2418,49 @@ textarea { font-family: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(-
 .ws-status-hint { margin-left: auto; color: var(--muted); }
 .save-indicator.saving { color: #f9a825; } .save-indicator.saved { color: var(--success, #1faa59); } .save-indicator.dirty { color: var(--danger); }
 
+/* ── Bill of Quantities ──────────────────────────────────────────────────────── */
+.boq { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.boq-toolbar { align-items: center; }
+.boq-title { margin: 0 0.5rem 0 0; font-size: 1.05rem; }
+.boq-toolbar-spacer { flex: 1; }
+.boq-save { font-size: 0.8rem; }
+.ws-save-saved { color: var(--success, #1faa59); } .ws-save-saving { color: #f9a825; } .ws-save-dirty { color: var(--danger); }
+.boq-grid-head { display: flex; background: var(--header-bg); color: #fff; border-radius: 8px 8px 0 0; overflow: hidden; }
+.boq-head-cell { font-weight: 600; }
+.boq-grid-body { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-top: none; }
+.boq-cell { flex: 0 0 auto; padding: 0 8px; line-height: 30px; height: 30px; font-size: 0.8rem; border-right: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.boq-cell.num { text-align: right; }
+.boq-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+.boq-item.selected { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.boq-input { width: 100%; height: 26px; border: none; padding: 0 4px; font-size: 0.8rem; box-sizing: border-box; background: transparent; color: inherit; }
+.boq-input:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--panel-bg); }
+.boq-division { background: color-mix(in srgb, var(--accent) 16%, var(--panel-bg)); font-weight: 700; padding-left: 6px; gap: 6px; }
+.boq-div-no { font-family: monospace; color: var(--accent); }
+.boq-section { background: color-mix(in srgb, var(--accent) 7%, var(--panel-bg)); font-weight: 600; padding-left: 24px; gap: 6px; }
+.boq-sec-no { font-family: monospace; color: var(--muted); }
+.boq-sec-total { margin-left: auto; margin-right: 8px; color: var(--accent); }
+.boq-add { margin-left: 8px; }
+.boq-tw { background: none; border: none; cursor: pointer; color: inherit; font-size: 0.8rem; width: 18px; }
+.boq-divtotal { background: var(--header-bg); color: #fff; font-weight: 700; padding: 0 8px; }
+.boq-divtotal-amt { margin-left: auto; }
+.boq-footer { display: flex; flex-wrap: wrap; gap: 1.2rem; padding: 0.5rem 0.75rem; margin-top: 0.5rem; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; }
+.boq-footer strong { color: var(--accent); }
+.boq-footer span:first-child { color: var(--muted); }
+/* BOQ reports modal */
+.boq-reports-modal { width: min(920px, 94vw); max-height: 88vh; display: flex; flex-direction: column; }
+.boq-reports-body { display: flex; gap: 1rem; flex: 1; min-height: 0; }
+.boq-reports-list { flex: 0 0 220px; display: flex; flex-direction: column; gap: 0.25rem; overflow: auto; }
+.boq-report-opt { display: flex; gap: 0.5rem; align-items: center; padding: 0.4rem 0.5rem; border-radius: 6px; cursor: pointer; }
+.boq-report-opt.selected { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.boq-reports-preview { flex: 1; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; }
+.boq-report-table { border-collapse: collapse; width: 100%; font-size: 0.78rem; }
+.boq-report-table th, .boq-report-table td { border: 1px solid var(--border); padding: 3px 6px; text-align: left; }
+.boq-report-table thead th { background: var(--header-bg); color: #fff; }
+.boq-report-table tr.division td { background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 700; }
+.boq-report-table tr.section td { background: color-mix(in srgb, var(--accent) 6%, transparent); font-weight: 600; }
+.boq-report-table tfoot td { font-weight: 700; background: var(--hover-bg); }
+.boq-report-note { color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem; }
+
 /* ── Master Materials Library ────────────────────────────────────────────────── */
 .matlib-page { padding: 0.5rem 0.25rem; }
 .matlib-count { margin-left: auto; color: var(--muted); font-size: 0.85rem; }

@@ -15,6 +15,7 @@ import ReportsPage from "../reports/ReportsPage";
 import ProcurementWorkspace from "../procurement/ProcurementWorkspace";
 import CostControlWorkspace from "../costcontrol/CostControlWorkspace";
 import EstimateWorksheet from "./EstimateWorksheet";
+import BillOfQuantities from "./BillOfQuantities";
 
 export default function ProjectWorkspace({ projectId, onBack }) {
   const [project, setProject] = useState(null);
@@ -177,6 +178,8 @@ export default function ProjectWorkspace({ projectId, onBack }) {
             />
           ) : selection.type === "worksheet" ? (
             <EstimateWorksheet projectId={projectId} />
+          ) : selection.type === "boq" ? (
+            <BillOfQuantities projectId={projectId} />
           ) : selection.type === "costControl" ? (
             <CostControlWorkspace projectId={projectId} />
           ) : selection.type === "procurement" ? (
