@@ -78,3 +78,53 @@ require authentication and the appropriate permission. Errors return
 - `GET /all`, `/executive`, `/health`, `/cost`, `/procurement`, `/tender`,
   `/resources`, `/portfolio`, `/kpi`, `/filters` (filterable by estimator,
   client, year, status)
+
+---
+
+## API groups (v1.0)
+
+Base URL: `/api`. Auth: `Authorization: Bearer <token>` (obtain from `POST /auth/login`).
+Interactive docs at `/api/docs`; machine-readable spec at `/api/openapi.json`.
+
+| Group | Base path | Purpose |
+|---|---|---|
+| Auth | `/auth` | `login`, `logout`, `refresh`, `me`, `change-password`, `forgot-password`, `reset-password` |
+| Projects | `/projects` | project CRUD, archive, duplicate |
+| WBS | `/wbs` | categories & subcategories |
+| Modules | `/modules` | work modules + line items (`/materials`, `/labor`, …), `duplicate` |
+| Estimate | `/estimate` | `project/:id/calculate`, `module/:id/calculate`, scenarios |
+| Catalogs | `/materials`, `/labor-specializations`, `/equipment`, `/catalog/*` | master data |
+| Assemblies | `/assemblies` | nested assemblies |
+| UPA | `/upa` | unit price analysis |
+| General Requirements | `/general-requirements` | GR sheets |
+| Reports | `/reports` | `types`, `generate/:type`, `export/:type` |
+| Procurement (catalog) | `/procurement` | material quotations & comparison |
+| Purchasing | `/purchasing` | `rfqs`, `rfqs/:id/quotations`, `rfqs/:id/bid-comparison`, `quotations/:id/award`, `purchase-orders/from-quotation/:id`, `purchase-requests`, `supplier-performance`, `attachments`, `dashboard` |
+| Cost Control | `/cost-control` | `budgets/from-estimate`, `budget-vs-actual/:id`, `earned-value/:id`, `cash-flow/:id`, `alerts/:id`, `dashboard/:id` |
+| Tendering | `/tenders`, `/clients`, `/drawings`, `/specifications`, `/addenda`, `/rfis` | tender & documents |
+| Enterprise | `/enterprise` | workflow, locks, notifications, `audit`, `activity/security`, `activity/system` |
+| Organization | `/organization` | `company`, `branches`, `departments`, `business-units`, `currencies`, `tax-settings` |
+| Users | `/users` | user & role management (Administration permission) |
+| Settings | `/settings` | application settings |
+| Admin | `/admin` | `backups`, `export/:scope`, `import` |
+| Analytics | `/analytics` | executive dashboards |
+| Excel | `/excel` | import/export templates |
+| Health / Docs | `/health`, `/openapi.json`, `/docs` | ops & documentation |
+
+### Example requests
+
+```sh
+# Authenticate
+curl -X POST http://localhost:4000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin123"}'
+
+# Calculate a project (single source of truth for all cost figures)
+curl http://localhost:4000/api/estimate/project/1/calculate
+
+# Earned value for a project
+curl "http://localhost:4000/api/cost-control/earned-value/1?percentComplete=40"
+
+# Export the whole database as JSON
+curl "http://localhost:4000/api/admin/export/database?download=true" -o backup.json
+```

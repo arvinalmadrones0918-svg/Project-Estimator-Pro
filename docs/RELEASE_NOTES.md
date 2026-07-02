@@ -61,3 +61,23 @@ business intelligence.
 - Administrator account: `admin` / `admin123` (change on first login).
 
 See `CHANGELOG.md` for the full phase-by-phase history.
+
+---
+
+### Also delivered in 1.0.0
+
+- **Enterprise & security:** refresh tokens, 8 built-in roles, Organization
+  management, and an audit trail capturing old/new value, IP address and
+  browser, with security and system log views.
+- **Procurement & purchasing:** RFQs from estimate items, multi-supplier
+  quotations, bid comparison, award → PO, purchase requests and supplier
+  performance.
+- **Cost control:** budget-vs-actual, change orders that update the revised
+  budget, cash-flow S-curves, earned value and alerts.
+- **Production readiness:** settings, backup/restore, import/export, OpenAPI +
+  Swagger docs, health check and security hardening (headers, rate limiting,
+  sanitization, compression).
+- **Quality:** 81 backend tests, 13 frontend tests, 14 Playwright checks — all
+  green. Production build verified.
+- **Demo data:** `npm run seed:demo` seeds a Demo Company plus six discipline
+  sample projects.

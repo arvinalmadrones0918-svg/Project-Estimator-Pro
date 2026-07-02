@@ -51,3 +51,34 @@ with reasons.
 
 Use the provided `scripts/backup.sh` (see DEPLOYMENT.md) to snapshot the SQLite
 database on a schedule. Test restores periodically.
+
+---
+
+## Administration (v1.0)
+
+The **Administration** page (top navigation) has these tabs:
+
+- **Users** — create/edit users (employee ID, name, position, designation,
+  department, company, role). Roles map to module/action permissions.
+- **Roles & Permissions** — 8 built-in roles: Administrator, Estimator, Project
+  Engineer, Project Manager, Procurement, Accounting, Executive, Viewer.
+- **Organization** — Company Profile (legal name, registration, tax ID, base
+  currency), Branches, Departments, Business Units, Currencies, Tax Settings.
+- **Settings** — system name, company logo, currency + symbol, default tax rate
+  and label, units, date and number formats, decimal places.
+- **Backup** — create manual database backups, download, and restore (restore
+  takes a pre-restore safety copy and requires a server restart). Schedule
+  automatic backups with `scripts/backup.sh` + `BACKUP_DIR`.
+- **Import / Export** — export database / catalogs / users / organization as JSON;
+  import a previously exported bundle (insert-or-ignore, non-destructive).
+- **API Docs** — Swagger UI (`/api/docs`) and the OpenAPI spec (`/api/openapi.json`).
+- **Audit Trail** — every action with old value, new value, IP address and browser.
+- **Security Logs / System Logs / Login History / Approval History**.
+
+### Authentication
+Token auth with **refresh tokens** (rotating). Sessions support *Remember Me* and
+sliding expiry. Rotate the default `admin` / `admin123` password immediately.
+
+### Demo data
+`cd backend && npm run seed:demo` creates the Demo Company and six sample projects.
+It is idempotent (existing projects are skipped).

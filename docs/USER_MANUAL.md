@@ -93,3 +93,50 @@ Use the Import wizard to bring data in from Excel/CSV: upload, preview, map
 columns, validate, review duplicates, choose an option (append / update
 existing / ignore duplicates / replace), and import. Download a template for
 any entity. Export any report or a multi-sheet summary workbook.
+
+---
+
+## Working in the Project Workspace (v1.0)
+
+Open a project to enter the **Project Workspace**. The left **Project Explorer**
+tree contains, under each project:
+
+- **Project Information** — name, client, owner, consultant, currency, revision.
+- **WBS** — Mechanical (with 10 sub-disciplines), Electrical, Civil, Architectural,
+  General Requirements. Add work items under any node; rename, duplicate, delete,
+  or drag-and-drop them between WBS nodes.
+- **Cost Summary** — the live waterfall.
+- **Cost Control** — budget, actuals, EVM, cash flow, alerts (see below).
+- **Procurement** — RFQs, quotations, bid comparison, POs (see below).
+- **Reports** — BOQ and all report types.
+
+A **Cost Summary sidebar** (right) and a **Bottom Summary Bar** show Materials,
+Labor, Equipment, Subcontract, Other, Direct Cost and Final Tender Price, updating
+instantly as you edit.
+
+### Procurement (per project)
+1. **RFQs** → *Generate RFQ from Estimate*: pick estimate items and invite suppliers.
+2. **Add quotations** for each invited supplier (per-item unit prices + lead time).
+3. **Bid Comparison** shows every quote side by side and highlights the **Lowest
+   Price** and **Best Value**, with variance and lead time. **Award** a quote and
+   generate a **Purchase Order** from it.
+4. **Purchase Requests** can be generated from approved estimate items.
+5. **Supplier Performance** records delivery / quality / price ratings.
+
+### Cost Control (per project)
+1. **Budget** → *Create Budget from Approved Estimate*. Track Original / Approved /
+   Revised / Forecast / Remaining.
+2. **Actual Costs** → record costs by source (PO, invoice, payroll, equipment,
+   subcontract, misc).
+3. **Budget vs Actual** shows variance and variance %, with overruns in red.
+4. **Change Orders** (owner / contractor / variation / additional / deductive) —
+   approving one automatically updates the revised budget.
+5. **Cash Flow** — monthly or weekly S-curve, planned vs actual.
+6. **Earned Value** — PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC.
+7. **Alerts** — budget exceeded, category over budget, negative cash flow, high
+   variance, supplier overrun.
+
+### Sample data
+Ask your administrator to run `npm run seed:demo` to load a Demo Company and six
+discipline sample projects (Mechanical, Electrical, Civil, Architectural, Plumbing,
+Fire Protection) to explore these features.

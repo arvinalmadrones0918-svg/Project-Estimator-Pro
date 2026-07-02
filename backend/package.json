@@ -7,7 +7,8 @@
     "seed": "node --experimental-sqlite src/seed.js",
     "test": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "coverage": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+    "coverage": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "seed:demo": "node src/demoSeed.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
