@@ -34,7 +34,7 @@ const COLUMNS = [
  *  priceLabel  - UI label for that field ("Unit Cost" or "Hourly Rate")
  *  hasUnit     - whether this catalog type has a unit column
  */
-export default function CatalogPage({ title, api, priceField, priceLabel = "Unit Cost", hasUnit = true }) {
+export default function CatalogPage({ title, api, priceField, priceLabel = "Unit Cost", hasUnit = true, extraFields = [] }) {
   // ── Data state ─────────────────────────────────────────────────────────────
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -375,6 +375,7 @@ export default function CatalogPage({ title, api, priceField, priceLabel = "Unit
           priceField={priceField}
           priceLabel={priceLabel}
           hasUnit={hasUnit}
+          extraFields={extraFields}
           onSave={handleSave}
           onClose={() => setShowForm(false)}
         />

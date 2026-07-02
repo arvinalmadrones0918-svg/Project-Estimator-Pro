@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { seedMaterialLibrary } from "./seedMaterialLibrary.js";
+import { seedResourceLibraries } from "./seedResourceLibraries.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DB_PATH lets tests point at an isolated, throwaway database.
@@ -295,10 +296,39 @@ ensureTimestampColumns("materials");
 
 ensureColumn("labor_specializations", "code", "code TEXT");
 ensureColumn("labor_specializations", "isActive", "isActive INTEGER NOT NULL DEFAULT 1");
+// Labor Library — enterprise productivity fields (additive). `unit` lets labor
+// flow through the shared catalog CRUD (which always writes a unit column).
+ensureColumn("labor_specializations", "unit", "unit TEXT");
+ensureColumn("labor_specializations", "trade", "trade TEXT");
+ensureColumn("labor_specializations", "skillLevel", "skillLevel TEXT");
+ensureColumn("labor_specializations", "dailyRate", "dailyRate REAL");
+ensureColumn("labor_specializations", "overtimeRate", "overtimeRate REAL");
+ensureColumn("labor_specializations", "productivity", "productivity REAL");
+ensureColumn("labor_specializations", "outputUnit", "outputUnit TEXT");
+ensureColumn("labor_specializations", "crewSize", "crewSize REAL");
+ensureColumn("labor_specializations", "standardHours", "standardHours REAL");
+ensureColumn("labor_specializations", "region", "region TEXT");
+ensureColumn("labor_specializations", "currency", "currency TEXT");
+ensureColumn("labor_specializations", "notes", "notes TEXT");
 ensureTimestampColumns("labor_specializations");
 
 ensureColumn("equipment", "code", "code TEXT");
 ensureColumn("equipment", "isActive", "isActive INTEGER NOT NULL DEFAULT 1");
+// Equipment Library — enterprise operating/productivity fields (additive).
+ensureColumn("equipment", "rentalRate", "rentalRate REAL");
+ensureColumn("equipment", "fuelConsumption", "fuelConsumption REAL");
+ensureColumn("equipment", "fuelType", "fuelType TEXT");
+ensureColumn("equipment", "operatorRequired", "operatorRequired INTEGER NOT NULL DEFAULT 0");
+ensureColumn("equipment", "productivity", "productivity REAL");
+ensureColumn("equipment", "outputUnit", "outputUnit TEXT");
+ensureColumn("equipment", "idleCost", "idleCost REAL");
+ensureColumn("equipment", "maintenanceCost", "maintenanceCost REAL");
+ensureColumn("equipment", "capacity", "capacity TEXT");
+ensureColumn("equipment", "manufacturer", "manufacturer TEXT");
+ensureColumn("equipment", "model", "model TEXT");
+ensureColumn("equipment", "year", "year INTEGER");
+ensureColumn("equipment", "currency", "currency TEXT");
+ensureColumn("equipment", "notes", "notes TEXT");
 ensureTimestampColumns("equipment");
 
 ensureColumn("work_modules", "sortOrder", "sortOrder INTEGER NOT NULL DEFAULT 0");
@@ -406,6 +436,17 @@ db.exec(`
     createdAt TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+// Subcontract Library — enterprise vendor/coverage fields (additive; the table
+// already has code/name/category/unit/unitPrice/currency/remarks).
+ensureColumn("subcontract_catalog", "trade", "trade TEXT");
+ensureColumn("subcontract_catalog", "coverageArea", "coverageArea TEXT");
+ensureColumn("subcontract_catalog", "leadTime", "leadTime TEXT");
+ensureColumn("subcontract_catalog", "warranty", "warranty TEXT");
+ensureColumn("subcontract_catalog", "preferredVendor", "preferredVendor TEXT");
+ensureColumn("subcontract_catalog", "contactInformation", "contactInformation TEXT");
+ensureColumn("subcontract_catalog", "performanceRating", "performanceRating REAL");
+ensureColumn("subcontract_catalog", "notes", "notes TEXT");
 
 // Phase 4: markup % and status on every line item table
 const lineItemTables4 = [
@@ -1691,3 +1732,6 @@ if (wbsCategoryCount === 0) {
 
 // Seed the Master Materials Library (500+ construction materials) on first init.
 seedMaterialLibrary(db);
+
+// Seed sample Labor / Equipment / Subcontract resource libraries on first init.
+seedResourceLibraries(db);

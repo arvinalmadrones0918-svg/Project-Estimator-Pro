@@ -77,9 +77,19 @@ app.use("/api/equipment", equipmentRouter);
 // The catalog router's GET / handler falls through to the simple behaviour
 // when no pagination/search params are present, so no existing callers break.
 app.use("/api/catalog/materials", makeCatalogRouter("materials", "unitPrice", "material"));
-app.use("/api/catalog/labor", makeCatalogRouter("labor_specializations", "hourlyRate", "labor", { hasUnit: false }));
-app.use("/api/catalog/equipment", makeCatalogRouter("equipment", "unitPrice", "equipment"));
-app.use("/api/catalog/subcontract", makeCatalogRouter("subcontract_catalog", "unitPrice", "subcontract"));
+app.use("/api/catalog/labor", makeCatalogRouter("labor_specializations", "hourlyRate", "labor", {
+  hasUnit: false,
+  extraFields: ["trade", "skillLevel", "dailyRate", "overtimeRate", "productivity", "outputUnit", "crewSize", "standardHours", "region", "notes"],
+  numericFields: ["dailyRate", "overtimeRate", "productivity", "crewSize", "standardHours"],
+}));
+app.use("/api/catalog/equipment", makeCatalogRouter("equipment", "unitPrice", "equipment", {
+  extraFields: ["rentalRate", "fuelConsumption", "fuelType", "operatorRequired", "productivity", "outputUnit", "idleCost", "maintenanceCost", "capacity", "manufacturer", "model", "year", "notes"],
+  numericFields: ["rentalRate", "fuelConsumption", "productivity", "idleCost", "maintenanceCost", "year"],
+}));
+app.use("/api/catalog/subcontract", makeCatalogRouter("subcontract_catalog", "unitPrice", "subcontract", {
+  extraFields: ["trade", "coverageArea", "leadTime", "warranty", "preferredVendor", "contactInformation", "performanceRating", "notes"],
+  numericFields: ["performanceRating"],
+}));
 app.use("/api/catalog/other-costs", makeCatalogRouter("other_costs_catalog", "unitPrice", "other_cost"));
 
 app.use("/api/projects", projectsRouter);

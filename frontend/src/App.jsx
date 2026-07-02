@@ -55,11 +55,22 @@ const CATALOG_TABS = [
     label: "Labor",
     component: () => (
       <CatalogPage
-        title="Labor Specializations"
+        title="Labor Library"
         api={catalogApis.labor}
         priceField="hourlyRate"
         priceLabel="Hourly Rate"
         hasUnit={false}
+        extraFields={[
+          { key: "trade", label: "Trade" },
+          { key: "skillLevel", label: "Skill Level" },
+          { key: "dailyRate", label: "Daily Rate", type: "number" },
+          { key: "overtimeRate", label: "Overtime Rate", type: "number" },
+          { key: "productivity", label: "Productivity", type: "number" },
+          { key: "outputUnit", label: "Output Unit" },
+          { key: "crewSize", label: "Crew Size", type: "number" },
+          { key: "standardHours", label: "Standard Hours", type: "number" },
+          { key: "region", label: "Region" },
+        ]}
       />
     ),
   },
@@ -68,11 +79,24 @@ const CATALOG_TABS = [
     label: "Equipment",
     component: () => (
       <CatalogPage
-        title="Equipment Catalog"
+        title="Equipment Library"
         api={catalogApis.equipment}
         priceField="unitPrice"
-        priceLabel="Unit Cost"
+        priceLabel="Rental Rate / Day"
         hasUnit
+        extraFields={[
+          { key: "rentalRate", label: "Rental Rate", type: "number" },
+          { key: "fuelConsumption", label: "Fuel Consumption", type: "number" },
+          { key: "fuelType", label: "Fuel Type" },
+          { key: "operatorRequired", label: "Operator Required", type: "checkbox" },
+          { key: "productivity", label: "Productivity", type: "number" },
+          { key: "outputUnit", label: "Output Unit" },
+          { key: "idleCost", label: "Idle Cost", type: "number" },
+          { key: "maintenanceCost", label: "Maintenance Cost", type: "number" },
+          { key: "capacity", label: "Capacity" },
+          { key: "model", label: "Model" },
+          { key: "year", label: "Year", type: "number" },
+        ]}
       />
     ),
   },
@@ -81,11 +105,20 @@ const CATALOG_TABS = [
     label: "Subcontract",
     component: () => (
       <CatalogPage
-        title="Subcontract Catalog"
+        title="Subcontract Library"
         api={catalogApis.subcontract}
         priceField="unitPrice"
         priceLabel="Unit Cost"
         hasUnit
+        extraFields={[
+          { key: "trade", label: "Trade" },
+          { key: "coverageArea", label: "Coverage Area" },
+          { key: "leadTime", label: "Lead Time" },
+          { key: "warranty", label: "Warranty" },
+          { key: "preferredVendor", label: "Preferred Vendor" },
+          { key: "contactInformation", label: "Contact Information", span: true },
+          { key: "performanceRating", label: "Performance Rating", type: "number" },
+        ]}
       />
     ),
   },

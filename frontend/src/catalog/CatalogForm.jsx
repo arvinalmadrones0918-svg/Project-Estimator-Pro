@@ -4,7 +4,7 @@ import { money } from "../utils";
 
 const CURRENCY_OPTIONS = ["USD", "PHP", "EUR", "GBP", "SGD", "AUD", "CAD", "JPY"];
 
-export default function CatalogForm({ item, priceLabel, priceField, hasUnit, onSave, onClose }) {
+export default function CatalogForm({ item, priceLabel, priceField, hasUnit, extraFields = [], onSave, onClose }) {
   const isEdit = !!item?.id;
 
   const [form, setForm] = useState({
@@ -20,6 +20,7 @@ export default function CatalogForm({ item, priceLabel, priceField, hasUnit, onS
     [priceField]: item?.[priceField] ?? "",
     currency: item?.currency ?? "USD",
     remarks: item?.remarks ?? "",
+    ...Object.fromEntries(extraFields.map((f) => [f.key, item?.[f.key] ?? ""])),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -102,6 +103,16 @@ export default function CatalogForm({ item, priceLabel, priceField, hasUnit, onS
               {CURRENCY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </label>
+          {extraFields.map((f) => (
+            <label key={f.key} className={f.span ? "span-2" : ""}>
+              {f.label}
+              {f.type === "checkbox" ? (
+                <input type="checkbox" checked={!!form[f.key]} onChange={(e) => set(f.key, e.target.checked)} />
+              ) : (
+                <input type={f.type === "number" ? "number" : "text"} value={form[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder || ""} />
+              )}
+            </label>
+          ))}
           <label className="span-2">
             Remarks
             <textarea

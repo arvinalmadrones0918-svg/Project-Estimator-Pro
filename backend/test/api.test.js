@@ -547,3 +547,52 @@ describe("Master Materials Library", () => {
     expect(updated.body.brand).toBe("SteelAsia"); // preserved
   });
 });
+
+// ── Resource Libraries (Labor / Equipment / Subcontract) ─────────────────────
+
+describe("Resource libraries", () => {
+  test("ship seeded with labor/equipment/subcontract sample records", async () => {
+    const labor = await request(app).get("/api/catalog/labor?limit=1");
+    const equip = await request(app).get("/api/catalog/equipment?limit=1");
+    const sub = await request(app).get("/api/catalog/subcontract?limit=1");
+    const totalOf = (r) => (r.body.total ?? (Array.isArray(r.body) ? r.body.length : r.body.items?.length)) ?? 0;
+    expect(totalOf(labor)).toBeGreaterThanOrEqual(15);
+    expect(totalOf(equip)).toBeGreaterThanOrEqual(15);
+    expect(totalOf(sub)).toBeGreaterThanOrEqual(10);
+  });
+
+  test("labor library persists productivity fields", async () => {
+    const c = await request(app).post("/api/catalog/labor").send({
+      name: "Test Welder", hourlyRate: 18, trade: "Structural", skillLevel: "Skilled",
+      dailyRate: 144, productivity: 4, outputUnit: "joints/hr", crewSize: 1,
+    });
+    expect(c.status).toBe(201);
+    expect(c.body.trade).toBe("Structural");
+    expect(c.body.dailyRate).toBe(144);
+    expect(c.body.productivity).toBe(4);
+  });
+
+  test("equipment library persists operating fields", async () => {
+    const c = await request(app).post("/api/catalog/equipment").send({
+      name: "Test Excavator", unit: "day", unitPrice: 350, rentalRate: 350, fuelType: "Diesel",
+      operatorRequired: true, capacity: "1.5 ton", model: "U17", year: 2022,
+    });
+    expect(c.status).toBe(201);
+    expect(c.body.fuelType).toBe("Diesel");
+    expect(c.body.operatorRequired).toBe(1);
+    expect(c.body.year).toBe(2022);
+  });
+
+  test("subcontract library persists vendor/coverage fields", async () => {
+    const c = await request(app).post("/api/catalog/subcontract").send({
+      name: "Test Waterproofing", unitPrice: 12, trade: "Civil", coverageArea: "Metro",
+      leadTime: "1 week", warranty: "10 years", preferredVendor: "AquaSeal", performanceRating: 4.2,
+    });
+    expect(c.status).toBe(201);
+    expect(c.body.warranty).toBe("10 years");
+    expect(c.body.performanceRating).toBe(4.2);
+    const u = await request(app).put(`/api/catalog/subcontract/${c.body.id}`).send({ leadTime: "2 weeks" });
+    expect(u.body.leadTime).toBe("2 weeks");
+    expect(u.body.preferredVendor).toBe("AquaSeal"); // preserved
+  });
+});

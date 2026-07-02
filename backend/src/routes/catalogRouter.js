@@ -18,8 +18,24 @@ const PAGE_SIZE_MAX = 500;
  *   nameLabel {string} - label for the main name field used in error messages
  */
 export function makeCatalogRouter(table, priceCol, catalogType, opts = {}) {
-  const { hasUnit = true } = opts;
+  const { hasUnit = true, extraFields = [], numericFields = [] } = opts;
   const router = Router();
+
+  // Persist resource-library-specific columns (labor/equipment/subcontract)
+  // beyond the shared catalog column set. Additive — only writes fields present
+  // in the request body, so existing callers are unaffected.
+  const numericSet = new Set(numericFields);
+  function applyExtraFields(id, body) {
+    const cols = extraFields.filter((f) => body[f] !== undefined);
+    if (!cols.length) return;
+    const vals = cols.map((f) => {
+      const v = body[f];
+      if (f === "operatorRequired") return v ? 1 : 0;
+      if (numericSet.has(f)) return v === "" || v === null ? null : Number(v);
+      return v;
+    });
+    db.prepare(`UPDATE ${table} SET ${cols.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`).run(...vals, id);
+  }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -269,6 +285,7 @@ export function makeCatalogRouter(table, priceCol, catalogType, opts = {}) {
       body.unit ?? null, body[priceCol] != null ? Number(body[priceCol]) : 0,
       body.currency ?? "USD", body.remarks ?? null, body.createdBy ?? null
     );
+    applyExtraFields(result.lastInsertRowid, body);
     const created = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(result.lastInsertRowid);
     recordPriceHistory(created.id, null, created[priceCol], { updatedBy: body.createdBy });
     res.status(201).json(created);
@@ -303,6 +320,7 @@ export function makeCatalogRouter(table, priceCol, catalogType, opts = {}) {
       body.isActive !== undefined ? Number(Boolean(body.isActive)) : existing.isActive,
       id
     );
+    applyExtraFields(id, body);
     recordPriceHistory(id, existing[priceCol], newPrice, { updatedBy: body.updatedBy, supplier: body.supplier });
     res.json(db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id));
   });
